@@ -18,6 +18,10 @@ class FridgeRepository(private val itemDao: ItemDao) {
 
     suspend fun addItem(item: ItemEntity): Long = itemDao.insert(item)
 
+    suspend fun getById(id: Long): ItemEntity? = itemDao.getById(id)
+
+    suspend fun updateItem(item: ItemEntity) = itemDao.update(item)
+
     suspend fun updateQuantity(id: Long, quantity: Int) {
         itemDao.updateQuantity(id, quantity, System.currentTimeMillis())
     }

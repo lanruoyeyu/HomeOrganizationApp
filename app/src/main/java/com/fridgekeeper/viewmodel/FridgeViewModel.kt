@@ -3,11 +3,14 @@ package com.fridgekeeper.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fridgekeeper.data.local.ItemEntity
+import com.fridgekeeper.data.local.UsageRecordEntity
 import com.fridgekeeper.data.repository.CatalogRepository
 import com.fridgekeeper.data.repository.FridgeRepository
+import com.fridgekeeper.data.repository.UsageRecordRepository
 import com.fridgekeeper.model.CategoryKind
 import com.fridgekeeper.model.FridgeUiState
 import com.fridgekeeper.model.ItemUiState
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,7 +20,8 @@ import kotlinx.coroutines.launch
 
 class FridgeViewModel(
     private val repository: FridgeRepository,
-    private val catalogRepository: CatalogRepository
+    private val catalogRepository: CatalogRepository,
+    private val usageRecordRepository: UsageRecordRepository
 ) : ViewModel() {
 
     private val selectedSubcategoryId = MutableStateFlow(0L)
@@ -121,4 +125,53 @@ class FridgeViewModel(
             repository.clearItem(id)
         }
     }
+
+    fun updateItem(
+        id: Long,
+        name: String,
+        subcategoryId: Long,
+        quantity: Int,
+        storageDate: Long,
+        expirationDate: Long,
+        locationId: Long?,
+        trackDailyCost: Boolean,
+        buyPrice: Double?,
+        buyAt: Long?
+    ) {
+        viewModelScope.launch {
+            val existing = repository.getById(id) ?: return@launch
+            repository.updateItem(
+                existing.copy(
+                    name = name,
+                    subcategoryId = subcategoryId,
+                    quantity = quantity,
+                    storageDate = storageDate,
+                    expirationDate = expirationDate,
+                    locationId = locationId,
+                    trackDailyCost = trackDailyCost,
+                    buyPrice = buyPrice,
+                    buyAt = buyAt,
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    fun addUsageRecord(itemId: Long, itemName: String, usageText: String, usedAt: Long, scene: String) {
+        viewModelScope.launch {
+            usageRecordRepository.add(
+                UsageRecordEntity(
+                    itemType = UsageRecordEntity.TYPE_FRIDGE,
+                    itemId = itemId,
+                    itemName = itemName,
+                    usageText = usageText,
+                    usedAt = usedAt,
+                    scene = scene
+                )
+            )
+        }
+    }
+
+    fun observeUsageHistory(itemId: Long): Flow<List<UsageRecordEntity>> =
+        usageRecordRepository.observeByItem(UsageRecordEntity.TYPE_FRIDGE, itemId)
 }

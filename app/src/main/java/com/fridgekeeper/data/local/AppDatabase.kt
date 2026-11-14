@@ -15,12 +15,16 @@ import com.fridgekeeper.model.ItemCategory
         DigitalItemEntity::class,
         PetCategoryEntity::class,
         PetItemEntity::class,
+        MedicineEntity::class,
         MapMarkerEntity::class,
+        MapPlaceEntity::class,
         CategoryEntity::class,
         SubcategoryEntity::class,
-        LocationEntity::class
+        LocationEntity::class,
+        UsageRecordEntity::class,
+        LedgerEntryEntity::class
     ],
-    version = 5,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -29,10 +33,14 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun digitalItemDao(): DigitalItemDao
     abstract fun petCategoryDao(): PetCategoryDao
     abstract fun petItemDao(): PetItemDao
+    abstract fun medicineDao(): MedicineDao
     abstract fun mapMarkerDao(): MapMarkerDao
+    abstract fun mapPlaceDao(): MapPlaceDao
     abstract fun categoryDao(): CategoryDao
     abstract fun subcategoryDao(): SubcategoryDao
     abstract fun locationDao(): LocationDao
+    abstract fun usageRecordDao(): UsageRecordDao
+    abstract fun ledgerDao(): LedgerDao
 
     companion object {
         @Volatile
@@ -87,6 +95,66 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `digital_items` ADD COLUMN `trackDailyCost` INTEGER NOT NULL DEFAULT 1")
                 db.execSQL("ALTER TABLE `pet_items` ADD COLUMN `locationId` INTEGER")
                 db.execSQL("ALTER TABLE `pet_items` ADD COLUMN `trackDailyCost` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `medicines` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`expiryDate` INTEGER NOT NULL, " +
+                        "`price` REAL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`updatedAt` INTEGER NOT NULL)"
+                )
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `map_places` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`posX` REAL NOT NULL, " +
+                        "`posY` REAL NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL)"
+                )
+            }
+        }
+
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `usage_records` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`itemType` TEXT NOT NULL, " +
+                        "`itemId` INTEGER NOT NULL, " +
+                        "`itemName` TEXT NOT NULL, " +
+                        "`usageText` TEXT NOT NULL, " +
+                        "`usedAt` INTEGER NOT NULL, " +
+                        "`scene` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL)"
+                )
+            }
+        }
+
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `ledger_entries` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`type` TEXT NOT NULL, " +
+                        "`amount` REAL NOT NULL, " +
+                        "`category` TEXT NOT NULL, " +
+                        "`paymentMethod` TEXT NOT NULL, " +
+                        "`note` TEXT NOT NULL, " +
+                        "`occurredAt` INTEGER NOT NULL, " +
+                        "`rawInput` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL)"
+                )
             }
         }
 
@@ -208,7 +276,16 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "fridge_keeper.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(
+                        MIGRATION_1_2,
+                        MIGRATION_2_3,
+                        MIGRATION_3_4,
+                        MIGRATION_4_5,
+                        MIGRATION_5_6,
+                        MIGRATION_6_7,
+                        MIGRATION_7_8,
+                        MIGRATION_8_9
+                    )
                     .addCallback(SEED_CALLBACK)
                     .fallbackToDestructiveMigration()
                     .build()

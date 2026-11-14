@@ -33,6 +33,9 @@ import com.fridgekeeper.model.DigitalItemUiState
 import com.fridgekeeper.ui.components.AddDigitalItemDialog
 import com.fridgekeeper.ui.components.DigitalItemCard
 import com.fridgekeeper.ui.components.SellDigitalItemDialog
+import com.fridgekeeper.ui.components.SwipeEditDeleteBox
+import com.fridgekeeper.ui.components.UsageHistoryDialog
+import com.fridgekeeper.ui.components.UseItemDialog
 import com.fridgekeeper.ui.theme.Primary
 import com.fridgekeeper.viewmodel.DigitalViewModel
 
@@ -42,6 +45,9 @@ fun DigitalScreen(viewModel: DigitalViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var sellTarget by remember { mutableStateOf<DigitalItemUiState?>(null) }
+    var editTarget by remember { mutableStateOf<DigitalItemUiState?>(null) }
+    var useTarget by remember { mutableStateOf<DigitalItemUiState?>(null) }
+    var historyTarget by remember { mutableStateOf<DigitalItemUiState?>(null) }
 
     Scaffold(
         topBar = {
@@ -97,10 +103,17 @@ fun DigitalScreen(viewModel: DigitalViewModel) {
                     items = uiState.items,
                     key = { it.id }
                 ) { item ->
-                    DigitalItemCard(
-                        item = item,
-                        onSell = { sellTarget = item }
-                    )
+                    SwipeEditDeleteBox(
+                        onEdit = { editTarget = item },
+                        onDelete = { viewModel.deleteItem(item.id) }
+                    ) {
+                        DigitalItemCard(
+                            item = item,
+                            onSell = { sellTarget = item },
+                            onUse = { useTarget = item },
+                            onHistory = { historyTarget = item }
+                        )
+                    }
                 }
             }
         }
@@ -109,10 +122,24 @@ fun DigitalScreen(viewModel: DigitalViewModel) {
     // 添加数码产品对话框
     if (showAddDialog) {
         AddDigitalItemDialog(
+            locations = uiState.locations,
             onDismiss = { showAddDialog = false },
-            onConfirm = { name, price, date ->
-                viewModel.addItem(name, price, date)
+            onConfirm = { name, price, date, locationId ->
+                viewModel.addItem(name, price, date, locationId)
                 showAddDialog = false
+            }
+        )
+    }
+
+    // 编辑数码产品对话框
+    editTarget?.let { target ->
+        AddDigitalItemDialog(
+            locations = uiState.locations,
+            editItem = target,
+            onDismiss = { editTarget = null },
+            onConfirm = { name, price, date, locationId ->
+                viewModel.updateItem(target.id, name, price, date, locationId)
+                editTarget = null
             }
         )
     }
@@ -126,6 +153,29 @@ fun DigitalScreen(viewModel: DigitalViewModel) {
                 viewModel.sellItem(target.id, price, date)
                 sellTarget = null
             }
+        )
+    }
+
+    // 使用弹窗
+    useTarget?.let { target ->
+        UseItemDialog(
+            itemName = target.name,
+            onDismiss = { useTarget = null },
+            onConfirm = { usage, usedAt, scene ->
+                viewModel.addUsageRecord(target.id, target.name, usage, usedAt, scene)
+                useTarget = null
+            }
+        )
+    }
+
+    // 使用记录弹窗
+    historyTarget?.let { target ->
+        val records by remember(target.id) { viewModel.observeUsageHistory(target.id) }
+            .collectAsState(initial = emptyList())
+        UsageHistoryDialog(
+            itemName = target.name,
+            records = records,
+            onDismiss = { historyTarget = null }
         )
     }
 }

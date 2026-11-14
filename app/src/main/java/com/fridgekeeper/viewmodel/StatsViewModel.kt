@@ -2,25 +2,35 @@ package com.fridgekeeper.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fridgekeeper.data.local.CategoryEntity
+import com.fridgekeeper.data.local.MapMarkerEntity
+import com.fridgekeeper.data.local.SubcategoryEntity
 import com.fridgekeeper.data.repository.CatalogRepository
-import com.fridgekeeper.data.repository.PetRepository
+import com.fridgekeeper.data.repository.MapMarkerRepository
+import com.fridgekeeper.data.repository.MapPlaceRepository
 import com.fridgekeeper.data.repository.StatsRepository
 import com.fridgekeeper.model.InventoryMath
-import com.fridgekeeper.model.QuantityType
-import com.fridgekeeper.model.StatsRow
+import com.fridgekeeper.model.MapMarkerUiState
+import com.fridgekeeper.model.MapPlaceUiState
+import com.fridgekeeper.model.MarkerItemType
+import com.fridgekeeper.model.ModuleStats
+import com.fridgekeeper.model.PickerItem
 import com.fridgekeeper.model.StatsUiState
-import com.fridgekeeper.model.WeightUnit
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class StatsViewModel(
     private val repository: StatsRepository,
-    private val catalogRepository: CatalogRepository,
-    private val petRepository: PetRepository
+    private val mapMarkerRepository: MapMarkerRepository,
+    private val mapPlaceRepository: MapPlaceRepository,
+    private val catalogRepository: CatalogRepository
 ) : ViewModel() {
 
     private val refreshTick = flow {
@@ -31,110 +41,155 @@ class StatsViewModel(
     }
 
     val uiState: StateFlow<StatsUiState> = combine(
-        combine(
-            repository.observeFridgeItems(),
-            repository.observeDigitalItems(),
-            repository.observePetItems(),
-            petRepository.observeCategories()
-        ) { fridge, digital, pet, petCats -> Quad(fridge, digital, pet, petCats) },
-        combine(
-            catalogRepository.observeSubcategories(),
-            catalogRepository.observeLocations(),
-            refreshTick
-        ) { subs, locs, tick -> Triple(subs, locs, tick) }
-    ) { items, catalog ->
+        repository.observeFridgeItems(),
+        repository.observeDigitalItems(),
+        repository.observePetItems(),
+        repository.observeMedicines(),
+        refreshTick
+    ) { fridge, digital, pet, medicine, _ ->
         val now = System.currentTimeMillis()
-        val subMap = catalog.first.associate { it.id to it.name }
-        val locMap = catalog.second.associate { it.id to it.displayName }
-        val petCatMap = items.fourth.associate { it.id to it.name }
-        val daily = mutableListOf<StatsRow>()
-        val qty = mutableListOf<StatsRow>()
 
-        items.first.forEach { item ->
-            val subName = subMap[item.subcategoryId] ?: "未分类"
-            val loc = item.locationId?.let { locMap[it] }
-            val remaining = item.quantity.toString()
-            if (item.trackDailyCost && item.buyPrice != null) {
-                daily += StatsRow(
-                    id = "food-${item.id}",
-                    name = item.name,
-                    moduleLabel = "食品",
-                    subcategoryName = subName,
-                    locationLabel = loc,
-                    dailyCost = InventoryMath.dailyCost(
-                        item.buyPrice,
-                        item.buyAt ?: item.storageDate,
-                        now
-                    ),
-                    remainingQuantity = remaining
-                )
-            } else {
-                qty += StatsRow(
-                    id = "food-${item.id}",
-                    name = item.name,
-                    moduleLabel = "食品",
-                    subcategoryName = subName,
-                    locationLabel = loc,
-                    dailyCost = null,
-                    remainingQuantity = remaining
-                )
-            }
-        }
+        val fridgeStats = ModuleStats(
+            itemCount = fridge.sumOf { it.quantity },
+            totalCost = fridge.mapNotNull { it.buyPrice }.sum(),
+            dailyCost = fridge
+                .filter { it.trackDailyCost && it.buyPrice != null }
+                .sumOf {
+                    InventoryMath.dailyCost(it.buyPrice!!, it.buyAt ?: it.storageDate, now)
+                },
+            hasPrice = fridge.any { it.buyPrice != null }
+        )
+        val digitalStats = ModuleStats(
+            itemCount = digital.size,
+            totalCost = digital.sumOf { it.purchasePrice },
+            dailyCost = digital
+                .filter { it.sellDate == null }
+                .sumOf { InventoryMath.dailyCost(it.purchasePrice, it.purchaseDate, now) },
+            hasPrice = true
+        )
+        val petStats = ModuleStats(
+            itemCount = pet.size,
+            totalCost = pet.sumOf { it.purchasePrice },
+            dailyCost = pet
+                .filter { it.trackDailyCost }
+                .sumOf { InventoryMath.dailyCost(it.purchasePrice, it.purchaseDate, now) },
+            hasPrice = true
+        )
+        val medicineStats = ModuleStats(
+            itemCount = medicine.size,
+            totalCost = medicine.mapNotNull { it.price }.sum(),
+            dailyCost = 0.0,
+            hasPrice = medicine.any { it.price != null }
+        )
 
-        items.second.forEach { item ->
-            val loc = item.locationId?.let { locMap[it] }
-            val end = if (item.sellDate != null) item.sellDate else now
-            val row = StatsRow(
-                id = "digital-${item.id}",
-                name = item.name,
-                moduleLabel = "数码",
-                subcategoryName = "数码产品",
-                locationLabel = loc,
-                dailyCost = InventoryMath.dailyCost(item.purchasePrice, item.purchaseDate, end),
-                remainingQuantity = if (item.sellDate == null) "持有中" else "已卖出"
-            )
-            if (item.trackDailyCost) daily += row else qty += row.copy(dailyCost = null)
-        }
-
-        items.third.forEach { item ->
-            val loc = item.locationId?.let { locMap[it] }
-            val cat = petCatMap[item.categoryId] ?: "未分类"
-            val unit = if (item.quantityType == QuantityType.WEIGHT.name) {
-                "${InventoryMath.formatQuantity(item.quantity)}${WeightUnit.fromName(item.weightUnit).label}"
-            } else {
-                "${InventoryMath.formatQuantity(item.quantity)}个"
-            }
-            if (item.trackDailyCost) {
-                daily += StatsRow(
-                    id = "pet-${item.id}",
-                    name = item.name,
-                    moduleLabel = "宠物",
-                    subcategoryName = cat,
-                    locationLabel = loc,
-                    dailyCost = InventoryMath.dailyCost(item.purchasePrice, item.purchaseDate, now),
-                    remainingQuantity = unit
-                )
-            } else {
-                qty += StatsRow(
-                    id = "pet-${item.id}",
-                    name = item.name,
-                    moduleLabel = "宠物",
-                    subcategoryName = cat,
-                    locationLabel = loc,
-                    dailyCost = null,
-                    remainingQuantity = unit
-                )
-            }
-        }
-
-        StatsUiState(dailyCostRows = daily, quantityRows = qty, isLoading = false)
+        StatsUiState(
+            fridgeStats = fridgeStats,
+            digitalStats = digitalStats,
+            petStats = petStats,
+            medicineStats = medicineStats,
+            totalDailyCost = fridgeStats.dailyCost + digitalStats.dailyCost + petStats.dailyCost,
+            isLoading = false
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = StatsUiState(isLoading = true)
     )
 
-    private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
-}
+    val markers: StateFlow<List<MapMarkerUiState>> = mapMarkerRepository.observeAll()
+        .map { list -> list.map { MapMarkerUiState.fromEntity(it) } }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
-private data class Triple<A, B, C>(val first: A, val second: B, val third: C)
+    val places: StateFlow<List<MapPlaceUiState>> = mapPlaceRepository.observeAll()
+        .map { list -> list.map { MapPlaceUiState.fromEntity(it) } }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val categories: StateFlow<List<CategoryEntity>> = catalogRepository.observeCategories()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val subcategories: StateFlow<List<SubcategoryEntity>> = catalogRepository.observeSubcategories()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    fun buildPickerItems(onReady: (List<PickerItem>) -> Unit) {
+        viewModelScope.launch {
+            val items = buildList {
+                repository.observeFridgeItems().first().forEach {
+                    add(PickerItem(MarkerItemType.FRIDGE, it.id, it.name, "食品"))
+                }
+                repository.observeDigitalItems().first().forEach {
+                    add(PickerItem(MarkerItemType.DIGITAL, it.id, it.name, "数码产品"))
+                }
+                repository.observePetItems().first().forEach {
+                    add(PickerItem(MarkerItemType.PET, it.id, it.name, "宠物用品"))
+                }
+            }
+            onReady(items)
+        }
+    }
+
+    fun addMarker(
+        itemType: MarkerItemType,
+        itemId: Long,
+        displayName: String,
+        posX: Float,
+        posY: Float
+    ) {
+        viewModelScope.launch {
+            mapMarkerRepository.add(
+                MapMarkerEntity(
+                    itemType = itemType.name,
+                    itemId = itemId,
+                    itemDisplayName = displayName,
+                    posX = posX,
+                    posY = posY
+                )
+            )
+        }
+    }
+
+    fun deleteMarker(id: Long) {
+        viewModelScope.launch {
+            mapMarkerRepository.delete(id)
+        }
+    }
+
+    fun addPlace(name: String, posX: Float, posY: Float, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            onResult(mapPlaceRepository.add(name, posX, posY) > 0)
+        }
+    }
+
+    fun deletePlace(id: Long) {
+        viewModelScope.launch {
+            mapPlaceRepository.delete(id)
+        }
+    }
+
+    fun addCategory(name: String, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            onResult(catalogRepository.addCategory(name) > 0)
+        }
+    }
+
+    fun addSubcategory(categoryId: Long, name: String, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            onResult(catalogRepository.addSubcategory(categoryId, name) > 0)
+        }
+    }
+}

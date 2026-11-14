@@ -30,27 +30,31 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fridgekeeper.model.DateUtils
+import com.fridgekeeper.model.DigitalItemUiState
 import com.fridgekeeper.ui.theme.Primary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddDigitalItemDialog(
     locations: List<com.fridgekeeper.data.local.LocationEntity> = emptyList(),
+    editItem: DigitalItemUiState? = null,
     onDismiss: () -> Unit,
     onConfirm: (name: String, purchasePrice: Double, purchaseDate: Long, locationId: Long?) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(editItem?.name ?: "") }
     var nameError by remember { mutableStateOf(false) }
-    var price by remember { mutableStateOf("") }
+    var price by remember {
+        mutableStateOf(editItem?.purchasePrice?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } ?: "")
+    }
     var priceError by remember { mutableStateOf(false) }
 
-    var purchaseDate by remember { mutableLongStateOf(DateUtils.todayStartMillis()) }
+    var purchaseDate by remember { mutableLongStateOf(editItem?.purchaseDate ?: DateUtils.todayStartMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
-    var locationId by remember { mutableStateOf<Long?>(null) }
+    var locationId by remember { mutableStateOf<Long?>(editItem?.locationId) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("添加数码产品", style = MaterialTheme.typography.titleLarge) },
+        title = { Text(if (editItem == null) "添加数码产品" else "编辑数码产品", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 // 物品名称
@@ -131,7 +135,7 @@ fun AddDigitalItemDialog(
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Primary)
             ) {
-                Text("确认添加")
+                Text(if (editItem == null) "确认添加" else "保存")
             }
         },
         dismissButton = {

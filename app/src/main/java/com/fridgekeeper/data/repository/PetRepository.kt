@@ -26,4 +26,10 @@ class PetRepository(
     }
 
     suspend fun addItem(item: PetItemEntity): Long = itemDao.insert(item)
+
+    suspend fun getItemById(id: Long): PetItemEntity? = itemDao.getById(id)
+
+    suspend fun updateItem(item: PetItemEntity) = itemDao.update(item)
+
+    suspend fun deleteItem(id: Long) = itemDao.delete(id)
 }

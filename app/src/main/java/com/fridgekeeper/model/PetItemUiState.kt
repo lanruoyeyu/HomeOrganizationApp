@@ -29,6 +29,7 @@ data class PetItemUiState(
     val quantity: Double,
     val tags: List<String>,
     val locationLabel: String?,
+    val locationId: Long?,
     val trackDailyCost: Boolean,
     val dailyCost: Double?
 ) {
@@ -56,6 +57,7 @@ data class PetItemUiState(
                     .map { it.trim() }
                     .filter { it.isNotEmpty() },
                 locationLabel = locationLabel,
+                locationId = entity.locationId,
                 trackDailyCost = entity.trackDailyCost,
                 dailyCost = daily
             )

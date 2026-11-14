@@ -26,6 +26,16 @@ data class MapMarkerUiState(
     }
 }
 
+/**
+ * 地图标注可选择的物品
+ */
+data class PickerItem(
+    val itemType: MarkerItemType,
+    val itemId: Long,
+    val displayName: String,
+    val subtitle: String
+)
+
 enum class MarkerItemType(val label: String, val icon: String) {
     FRIDGE("冰箱", "📦"),
     DIGITAL("数码", "📱"),

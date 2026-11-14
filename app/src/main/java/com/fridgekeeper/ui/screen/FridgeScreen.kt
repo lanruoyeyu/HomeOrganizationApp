@@ -30,9 +30,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fridgekeeper.model.ItemUiState
 import com.fridgekeeper.ui.components.AddItemDialog
 import com.fridgekeeper.ui.components.ItemCard
 import com.fridgekeeper.ui.components.StatsBar
+import com.fridgekeeper.ui.components.SwipeEditDeleteBox
+import com.fridgekeeper.ui.components.UsageHistoryDialog
+import com.fridgekeeper.ui.components.UseItemDialog
 import com.fridgekeeper.ui.theme.Primary
 import com.fridgekeeper.viewmodel.FridgeViewModel
 
@@ -41,11 +45,14 @@ import com.fridgekeeper.viewmodel.FridgeViewModel
 fun FridgeScreen(viewModel: FridgeViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    var editTarget by remember { mutableStateOf<ItemUiState?>(null) }
+    var useTarget by remember { mutableStateOf<ItemUiState?>(null) }
+    var historyTarget by remember { mutableStateOf<ItemUiState?>(null) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("冰箱收纳助手", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("物品收纳助手", color = Color.White, fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary)
             )
         },
@@ -79,8 +86,8 @@ fun FridgeScreen(viewModel: FridgeViewModel) {
             ) {
                 // 统计栏
                 StatsBar(
-                    totalCount = uiState.totalCount,
-                    categoryCounts = uiState.categoryCounts
+                    subcategoryCount = uiState.subcategoryCount,
+                    itemCount = uiState.itemCount
                 )
 
                 // 物品列表
@@ -106,18 +113,25 @@ fun FridgeScreen(viewModel: FridgeViewModel) {
                             items = uiState.items,
                             key = { it.id }
                         ) { item ->
-                            ItemCard(
-                                item = item,
-                                onDecrease = {
-                                    viewModel.decreaseQuantity(item.id, item.quantity)
-                                },
-                                onIncrease = {
-                                    viewModel.increaseQuantity(item.id, item.quantity)
-                                },
-                                onClear = {
-                                    viewModel.clearItem(item.id)
-                                }
-                            )
+                            SwipeEditDeleteBox(
+                                onEdit = { editTarget = item },
+                                onDelete = { viewModel.clearItem(item.id) }
+                            ) {
+                                ItemCard(
+                                    item = item,
+                                    onDecrease = {
+                                        viewModel.decreaseQuantity(item.id, item.quantity)
+                                    },
+                                    onIncrease = {
+                                        viewModel.increaseQuantity(item.id, item.quantity)
+                                    },
+                                    onClear = {
+                                        viewModel.clearItem(item.id)
+                                    },
+                                    onUse = { useTarget = item },
+                                    onHistory = { historyTarget = item }
+                                )
+                            }
                         }
                     }
                 }
@@ -128,11 +142,79 @@ fun FridgeScreen(viewModel: FridgeViewModel) {
     // 添加物品对话框
     if (showAddDialog) {
         AddItemDialog(
+            subcategories = uiState.subcategories,
+            locations = uiState.locations,
             onDismiss = { showAddDialog = false },
-            onConfirm = { name, category, quantity, storageDate, expirationDate ->
-                viewModel.addItem(name, category, quantity, storageDate, expirationDate)
+            onAddSubcategory = { name, onResult ->
+                viewModel.addSubcategory(name) { success, id -> onResult(success, id) }
+            },
+            onConfirm = { name, subcategoryId, quantity, storageDate, expirationDate,
+                          locationId, trackDailyCost, buyPrice, buyAt ->
+                viewModel.addItem(
+                    name,
+                    subcategoryId,
+                    quantity,
+                    storageDate,
+                    expirationDate,
+                    locationId,
+                    trackDailyCost,
+                    buyPrice,
+                    buyAt
+                )
                 showAddDialog = false
             }
+        )
+    }
+
+    // 编辑物品对话框
+    editTarget?.let { target ->
+        AddItemDialog(
+            subcategories = uiState.subcategories,
+            locations = uiState.locations,
+            onDismiss = { editTarget = null },
+            onAddSubcategory = { name, onResult ->
+                viewModel.addSubcategory(name) { success, id -> onResult(success, id) }
+            },
+            editItem = target,
+            onConfirm = { name, subcategoryId, quantity, storageDate, expirationDate,
+                          locationId, trackDailyCost, buyPrice, buyAt ->
+                viewModel.updateItem(
+                    target.id,
+                    name,
+                    subcategoryId,
+                    quantity,
+                    storageDate,
+                    expirationDate,
+                    locationId,
+                    trackDailyCost,
+                    buyPrice,
+                    buyAt
+                )
+                editTarget = null
+            }
+        )
+    }
+
+    // 使用弹窗
+    useTarget?.let { target ->
+        UseItemDialog(
+            itemName = target.name,
+            onDismiss = { useTarget = null },
+            onConfirm = { usage, usedAt, scene ->
+                viewModel.addUsageRecord(target.id, target.name, usage, usedAt, scene)
+                useTarget = null
+            }
+        )
+    }
+
+    // 使用记录弹窗
+    historyTarget?.let { target ->
+        val records by remember(target.id) { viewModel.observeUsageHistory(target.id) }
+            .collectAsState(initial = emptyList())
+        UsageHistoryDialog(
+            itemName = target.name,
+            records = records,
+            onDismiss = { historyTarget = null }
         )
     }
 }

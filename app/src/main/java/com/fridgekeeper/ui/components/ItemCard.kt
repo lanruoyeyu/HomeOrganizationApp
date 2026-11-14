@@ -1,17 +1,12 @@
 package com.fridgekeeper.ui.components
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,18 +22,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fridgekeeper.model.DateUtils
@@ -50,8 +37,6 @@ import com.fridgekeeper.ui.theme.ClearedGrayBg
 import com.fridgekeeper.ui.theme.NormalGreen
 import com.fridgekeeper.ui.theme.WarningOrange
 import com.fridgekeeper.ui.theme.WarningOrangeBg
-import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 @Composable
 fun ItemCard(
@@ -59,217 +44,138 @@ fun ItemCard(
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
     onClear: () -> Unit,
+    onUse: () -> Unit,
+    onHistory: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (item.quantity == 0) {
         ClearedItemCard(item = item, onClear = onClear, modifier = modifier)
         return
     }
-    SwipeableItemCard(
-        item = item,
-        onDecrease = onDecrease,
-        onIncrease = onIncrease,
-        modifier = modifier
-    )
-}
-
-@Composable
-private fun SwipeableItemCard(
-    item: ItemUiState,
-    onDecrease: () -> Unit,
-    onIncrease: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val density = LocalDensity.current
-    val actionWidthPx = with(density) { 140.dp.toPx() }
-    val scope = rememberCoroutineScope()
-
-    val offsetX = remember { Animatable(0f) }
-    var isExpanded by remember { mutableStateOf(false) }
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = when {
+                item.isExpired -> AlertRedBg
+                item.isWarning -> WarningOrangeBg
+                else -> Color.White
+            }
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        // 背景操作层
-        Row(
-            modifier = Modifier
-                .matchParentSize()
-                .background(
-                    color = Color(0xFFE0E0E0),
-                    shape = RoundedCornerShape(12.dp)
-                )
-                .padding(end = 16.dp),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onDecrease,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(AlertRed, CircleShape)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Remove,
-                    contentDescription = "消耗",
-                    tint = Color.White
-                )
-            }
+                Text(text = "📦", fontSize = 32.sp)
 
-            Text(
-                text = "${item.quantity}",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF212121),
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
+                Spacer(modifier = Modifier.width(12.dp))
 
-            IconButton(
-                onClick = onIncrease,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(NormalGreen, CircleShape)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "加仓",
-                    tint = Color.White
-                )
-            }
-        }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.name,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (item.isExpired) AlertRed else Color(0xFF212121)
+                    )
 
-        // 前景卡片层
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            isExpanded = offsetX.value < -actionWidthPx / 2
-                            scope.launch {
-                                if (isExpanded) {
-                                    offsetX.animateTo(-actionWidthPx, tween(200))
-                                } else {
-                                    offsetX.animateTo(0f, tween(200))
-                                }
-                            }
-                        },
-                        onDragCancel = {
-                            isExpanded = offsetX.value < -actionWidthPx / 2
-                            scope.launch {
-                                if (isExpanded) {
-                                    offsetX.animateTo(-actionWidthPx, tween(200))
-                                } else {
-                                    offsetX.animateTo(0f, tween(200))
-                                }
-                            }
-                        }
-                    ) { _, dragAmount ->
-                        scope.launch {
-                            offsetX.snapTo(
-                                (offsetX.value + dragAmount).coerceIn(-actionWidthPx, 0f)
-                            )
-                        }
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0xFFF0F0F0)
+                    ) {
+                        Text(
+                            text = item.subcategoryName,
+                            fontSize = 11.sp,
+                            color = Color(0xFF888888),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
                     }
-                },
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = when {
-                    item.isExpired -> AlertRedBg
-                    item.isWarning -> WarningOrangeBg
-                    else -> Color.White
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "存放：${DateUtils.formatDate(item.storageDate)}" +
+                            (item.locationLabel?.let { "  |  $it" } ?: ""),
+                        fontSize = 12.sp,
+                        color = Color(0xFF888888)
+                    )
+                    Text(
+                        text = "过期：${DateUtils.formatDate(item.expirationDate)}",
+                        fontSize = 12.sp,
+                        color = Color(0xFF888888)
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    val remainingText = when {
+                        item.isExpired -> "已过期"
+                        item.remainingDays == 1 -> "保质期剩余：1天"
+                        else -> "保质期剩余：${item.remainingDays}天"
+                    }
+                    val remainingColor = when {
+                        item.isExpired -> AlertRed
+                        item.isWarning -> WarningOrange
+                        else -> NormalGreen
+                    }
+                    Text(
+                        text = remainingText,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = remainingColor
+                    )
                 }
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            ItemCardContent(item)
-        }
-    }
-}
+            }
 
-@Composable
-private fun ItemCardContent(item: ItemUiState) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "📦",
-            fontSize = 32.sp
-        )
+            Spacer(modifier = Modifier.height(10.dp))
 
-        Spacer(modifier = Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
+            // 数量步进器 + 使用/记录
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = item.name,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (item.isExpired) AlertRed else Color(0xFF212121)
-                )
-                Text(
-                    text = "x${item.quantity}",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = if (item.isExpired) AlertRed else Color(0xFF616161)
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = onDecrease,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(AlertRed, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Remove,
+                            contentDescription = "消耗",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Text(
+                        text = "${item.quantity}",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF212121),
+                        modifier = Modifier.padding(horizontal = 10.dp)
+                    )
+                    IconButton(
+                        onClick = onIncrease,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(NormalGreen, CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "加仓",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                UsageActionButtons(onUse = onUse, onHistory = onHistory)
             }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Surface(
-                shape = RoundedCornerShape(4.dp),
-                color = Color(0xFFF0F0F0)
-            ) {
-                Text(
-                    text = item.subcategoryName,
-                    fontSize = 11.sp,
-                    color = Color(0xFF888888),
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "存放：${DateUtils.formatDate(item.storageDate)}" +
-                    (item.locationLabel?.let { "  |  $it" } ?: ""),
-                fontSize = 12.sp,
-                color = Color(0xFF888888)
-            )
-            Text(
-                text = "过期：${DateUtils.formatDate(item.expirationDate)}",
-                fontSize = 12.sp,
-                color = Color(0xFF888888)
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            val remainingText = when {
-                item.isExpired -> "已过期"
-                item.remainingDays == 1 -> "保质期剩余：1天"
-                else -> "保质期剩余：${item.remainingDays}天"
-            }
-            val remainingColor = when {
-                item.isExpired -> AlertRed
-                item.isWarning -> WarningOrange
-                else -> NormalGreen
-            }
-            Text(
-                text = remainingText,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = remainingColor
-            )
         }
     }
 }
@@ -281,9 +187,7 @@ private fun ClearedItemCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = ClearedGrayBg),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)

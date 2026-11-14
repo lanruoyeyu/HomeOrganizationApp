@@ -1,17 +1,20 @@
 package com.fridgekeeper.model
 
 data class StatsUiState(
-    val dailyCostRows: List<StatsRow> = emptyList(),
-    val quantityRows: List<StatsRow> = emptyList(),
+    val fridgeStats: ModuleStats = ModuleStats(),
+    val digitalStats: ModuleStats = ModuleStats(),
+    val petStats: ModuleStats = ModuleStats(),
+    val medicineStats: ModuleStats = ModuleStats(),
+    val totalDailyCost: Double = 0.0,
     val isLoading: Boolean = true
 )
 
-data class StatsRow(
-    val id: String,
-    val name: String,
-    val moduleLabel: String,
-    val subcategoryName: String,
-    val locationLabel: String?,
-    val dailyCost: Double?,
-    val remainingQuantity: String
+/**
+ * 单个大类的汇总数据
+ */
+data class ModuleStats(
+    val itemCount: Int = 0,
+    val totalCost: Double = 0.0,
+    val dailyCost: Double = 0.0,
+    val hasPrice: Boolean = false
 )

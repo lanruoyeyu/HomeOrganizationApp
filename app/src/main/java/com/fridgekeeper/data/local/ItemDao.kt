@@ -41,6 +41,9 @@ interface ItemDao {
     @Insert
     suspend fun insert(item: ItemEntity): Long
 
+    @Query("SELECT * FROM items WHERE id = :id")
+    suspend fun getById(id: Long): ItemEntity?
+
     @Update
     suspend fun update(item: ItemEntity)
 

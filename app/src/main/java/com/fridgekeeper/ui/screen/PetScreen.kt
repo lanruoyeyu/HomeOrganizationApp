@@ -34,8 +34,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fridgekeeper.model.PetItemUiState
 import com.fridgekeeper.ui.components.AddPetItemDialog
 import com.fridgekeeper.ui.components.PetItemCard
+import com.fridgekeeper.ui.components.SwipeEditDeleteBox
+import com.fridgekeeper.ui.components.UsageHistoryDialog
+import com.fridgekeeper.ui.components.UseItemDialog
 import com.fridgekeeper.ui.theme.Primary
 import com.fridgekeeper.viewmodel.PetViewModel
 
@@ -44,6 +48,9 @@ import com.fridgekeeper.viewmodel.PetViewModel
 fun PetScreen(viewModel: PetViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    var editTarget by remember { mutableStateOf<PetItemUiState?>(null) }
+    var useTarget by remember { mutableStateOf<PetItemUiState?>(null) }
+    var historyTarget by remember { mutableStateOf<PetItemUiState?>(null) }
 
     // 0 表示全部
     var filterCategoryId by remember { mutableLongStateOf(0L) }
@@ -131,7 +138,16 @@ fun PetScreen(viewModel: PetViewModel) {
                         contentPadding = PaddingValues(vertical = 8.dp)
                     ) {
                         items(items = shownItems, key = { it.id }) { item ->
-                            PetItemCard(item = item)
+                            SwipeEditDeleteBox(
+                                onEdit = { editTarget = item },
+                                onDelete = { viewModel.deleteItem(item.id) }
+                            ) {
+                                PetItemCard(
+                                    item = item,
+                                    onUse = { useTarget = item },
+                                    onHistory = { historyTarget = item }
+                                )
+                            }
                         }
                     }
                 }
@@ -142,23 +158,84 @@ fun PetScreen(viewModel: PetViewModel) {
     if (showAddDialog) {
         AddPetItemDialog(
             categories = uiState.categories,
+            locations = uiState.locations,
             onDismiss = { showAddDialog = false },
             onAddCategory = { name, onResult ->
-                viewModel.addCategory(name) { success ->
-                    // 新增成功后，从最新分类列表中找到 id 传回
-                    if (success) {
-                        val newId = viewModel.uiState.value.categories
-                            .firstOrNull { it.name == name.trim() }?.id ?: -1L
-                        onResult(newId > 0, newId)
-                    } else {
-                        onResult(false, -1L)
-                    }
+                viewModel.addCategory(name) { success, newId ->
+                    onResult(success, newId)
                 }
             },
-            onConfirm = { name, categoryId, price, date, qType, unit, qty, tags ->
-                viewModel.addItem(name, categoryId, price, date, qType, unit, qty, tags)
+            onConfirm = { name, categoryId, price, date, qType, unit, qty, tags,
+                          locationId, trackDailyCost ->
+                viewModel.addItem(
+                    name,
+                    categoryId,
+                    price,
+                    date,
+                    qType,
+                    unit,
+                    qty,
+                    tags,
+                    locationId,
+                    trackDailyCost
+                )
                 showAddDialog = false
             }
+        )
+    }
+
+    // 编辑宠物用品对话框
+    editTarget?.let { target ->
+        AddPetItemDialog(
+            categories = uiState.categories,
+            locations = uiState.locations,
+            editItem = target,
+            onDismiss = { editTarget = null },
+            onAddCategory = { name, onResult ->
+                viewModel.addCategory(name) { success, newId ->
+                    onResult(success, newId)
+                }
+            },
+            onConfirm = { name, categoryId, price, date, qType, unit, qty, tags,
+                          locationId, trackDailyCost ->
+                viewModel.updateItem(
+                    target.id,
+                    name,
+                    categoryId,
+                    price,
+                    date,
+                    qType,
+                    unit,
+                    qty,
+                    tags,
+                    locationId,
+                    trackDailyCost
+                )
+                editTarget = null
+            }
+        )
+    }
+
+    // 使用弹窗
+    useTarget?.let { target ->
+        UseItemDialog(
+            itemName = target.name,
+            onDismiss = { useTarget = null },
+            onConfirm = { usage, usedAt, scene ->
+                viewModel.addUsageRecord(target.id, target.name, usage, usedAt, scene)
+                useTarget = null
+            }
+        )
+    }
+
+    // 使用记录弹窗
+    historyTarget?.let { target ->
+        val records by remember(target.id) { viewModel.observeUsageHistory(target.id) }
+            .collectAsState(initial = emptyList())
+        UsageHistoryDialog(
+            itemName = target.name,
+            records = records,
+            onDismiss = { historyTarget = null }
         )
     }
 }

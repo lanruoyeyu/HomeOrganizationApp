@@ -20,6 +20,8 @@ val AlertRedBg = Color(0xFFFFEBEE)
 val WarningOrange = Color(0xFFFF9800)
 val WarningOrangeBg = Color(0xFFFFF3E0)
 val NormalGreen = Color(0xFF4CAF50)
+// 药品未过期时的浅绿底色
+val NormalGreenBg = Color(0xFFE8F5E9)
 
 // 已清空状态
 val ClearedGray = Color(0xFF9E9E9E)

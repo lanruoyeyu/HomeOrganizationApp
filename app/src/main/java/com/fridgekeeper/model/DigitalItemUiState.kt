@@ -13,7 +13,8 @@ data class DigitalItemUiState(
     val daysHeld: Int,
     val dailyCost: Double,
     val profit: Double?,
-    val locationLabel: String?
+    val locationLabel: String?,
+    val locationId: Long?
 ) {
     companion object {
         fun fromEntity(
@@ -37,7 +38,8 @@ data class DigitalItemUiState(
                 daysHeld = daysHeld,
                 dailyCost = dailyCost,
                 profit = profit,
-                locationLabel = locationLabel
+                locationLabel = locationLabel,
+                locationId = entity.locationId
             )
         }
     }

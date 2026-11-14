@@ -22,11 +22,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "FridgeKeeper"
 include(":app")
-
-// 编译中间产物与 APK 输出到 F 盘，避免占用工程目录
-gradle.projectsLoaded {
-    val buildRoot = java.io.File("F:/software/app-build/HomeOrganizationApp")
-    rootProject.allprojects {
-        layout.buildDirectory.set(java.io.File(buildRoot, name))
-    }
-}

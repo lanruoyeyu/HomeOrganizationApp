@@ -35,12 +35,12 @@ internal fun formatQuantity(value: Double): String =
 @Composable
 fun PetItemCard(
     item: PetItemUiState,
+    onUse: () -> Unit,
+    onHistory: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -138,6 +138,15 @@ fun PetItemCard(
                         }
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                UsageActionButtons(onUse = onUse, onHistory = onHistory)
             }
         }
     }

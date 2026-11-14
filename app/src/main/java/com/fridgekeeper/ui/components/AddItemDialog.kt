@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.fridgekeeper.data.local.LocationEntity
 import com.fridgekeeper.data.local.SubcategoryEntity
 import com.fridgekeeper.model.DateUtils
+import com.fridgekeeper.model.ItemUiState
 import com.fridgekeeper.ui.theme.Primary
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,6 +48,7 @@ fun AddItemDialog(
     locations: List<LocationEntity>,
     onDismiss: () -> Unit,
     onAddSubcategory: (name: String, onResult: (Boolean, Long) -> Unit) -> Unit,
+    editItem: ItemUiState? = null,
     onConfirm: (
         name: String,
         subcategoryId: Long,
@@ -59,28 +61,30 @@ fun AddItemDialog(
         buyAt: Long?
     ) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(editItem?.name ?: "") }
     var nameError by remember { mutableStateOf(false) }
-    var selectedSubId by remember(subcategories) {
-        mutableLongStateOf(subcategories.firstOrNull()?.id ?: 0L)
+    var selectedSubId by remember(subcategories, editItem) {
+        mutableLongStateOf(editItem?.subcategoryId ?: subcategories.firstOrNull()?.id ?: 0L)
     }
     var subExpanded by remember { mutableStateOf(false) }
     var showNewSub by remember { mutableStateOf(false) }
-    var quantity by remember { mutableStateOf("1") }
+    var quantity by remember { mutableStateOf(editItem?.quantity?.toString() ?: "1") }
     var quantityError by remember { mutableStateOf(false) }
-    var storageDate by remember { mutableLongStateOf(DateUtils.todayStartMillis()) }
-    var expirationDate by remember { mutableLongStateOf(DateUtils.todayStartMillis() + 7L * 24 * 60 * 60 * 1000) }
+    var storageDate by remember { mutableLongStateOf(editItem?.storageDate ?: DateUtils.todayStartMillis()) }
+    var expirationDate by remember { mutableLongStateOf(editItem?.expirationDate ?: (DateUtils.todayStartMillis() + 7L * 24 * 60 * 60 * 1000)) }
     var dateError by remember { mutableStateOf(false) }
     var showStoragePicker by remember { mutableStateOf(false) }
     var showExpirationPicker by remember { mutableStateOf(false) }
-    var locationId by remember { mutableStateOf<Long?>(null) }
-    var trackDailyCost by remember { mutableStateOf(false) }
-    var buyPrice by remember { mutableStateOf("") }
+    var locationId by remember { mutableStateOf<Long?>(editItem?.locationId) }
+    var trackDailyCost by remember { mutableStateOf(editItem?.trackDailyCost ?: false) }
+    var buyPrice by remember {
+        mutableStateOf(editItem?.buyPrice?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } ?: "")
+    }
     val selectedSubName = subcategories.firstOrNull { it.id == selectedSubId }?.name ?: "请选择小类"
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("添加食品", style = MaterialTheme.typography.titleLarge) },
+        title = { Text(if (editItem == null) "添加食品" else "编辑食品", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(
                 modifier = Modifier
@@ -214,7 +218,7 @@ fun AddItemDialog(
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Primary)
-            ) { Text("确认添加") }
+            ) { Text(if (editItem == null) "确认添加" else "保存") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } }
     )

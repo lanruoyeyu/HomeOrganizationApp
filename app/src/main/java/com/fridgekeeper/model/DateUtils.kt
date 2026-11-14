@@ -11,6 +11,9 @@ object DateUtils {
 
     private const val MILLIS_PER_DAY = 24 * 60 * 60 * 1000L
 
+    /** 药品等物品的临期提醒阈值（天） */
+    const val EXPIRING_SOON_DAYS = 10
+
     /**
      * 计算保质期剩余天数 = (过期时间 - 当前时间) / 一天毫秒数，向下取整
      */
@@ -31,6 +34,12 @@ object DateUtils {
      * 是否警告：0 < remainingDays <= 3
      */
     fun isWarning(remainingDays: Int): Boolean = remainingDays in 1..3
+
+    /**
+     * 是否临期：0 < remainingDays <= EXPIRING_SOON_DAYS
+     */
+    fun isExpiringSoon(remainingDays: Int): Boolean =
+        remainingDays in 1..EXPIRING_SOON_DAYS
 
     /**
      * 格式化时间戳为 yyyy-MM-dd 字符串

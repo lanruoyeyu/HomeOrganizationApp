@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.fridgekeeper.model.DateUtils
 import com.fridgekeeper.model.PetCategoryUiState
+import com.fridgekeeper.model.PetItemUiState
 import com.fridgekeeper.model.QuantityType
 import com.fridgekeeper.model.WeightUnit
 import com.fridgekeeper.ui.theme.Primary
@@ -48,6 +49,7 @@ fun AddPetItemDialog(
     onDismiss: () -> Unit,
     onAddCategory: (name: String, onResult: (Boolean, Long) -> Unit) -> Unit,
     locations: List<com.fridgekeeper.data.local.LocationEntity> = emptyList(),
+    editItem: PetItemUiState? = null,
     onConfirm: (
         name: String,
         categoryId: Long,
@@ -61,38 +63,42 @@ fun AddPetItemDialog(
         trackDailyCost: Boolean
     ) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(editItem?.name ?: "") }
     var nameError by remember { mutableStateOf(false) }
 
-    var price by remember { mutableStateOf("") }
+    var price by remember {
+        mutableStateOf(editItem?.purchasePrice?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } ?: "")
+    }
     var priceError by remember { mutableStateOf(false) }
 
-    var purchaseDate by remember { mutableLongStateOf(DateUtils.todayStartMillis()) }
+    var purchaseDate by remember { mutableLongStateOf(editItem?.purchaseDate ?: DateUtils.todayStartMillis()) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     // 种类
-    var selectedCategoryId by remember(categories) {
-        mutableLongStateOf(categories.firstOrNull()?.id ?: 0L)
+    var selectedCategoryId by remember(categories, editItem) {
+        mutableLongStateOf(editItem?.categoryId ?: categories.firstOrNull()?.id ?: 0L)
     }
     var categoryMenuExpanded by remember { mutableStateOf(false) }
     var showNewCategoryDialog by remember { mutableStateOf(false) }
 
     // 数量
-    var quantityType by remember { mutableStateOf(QuantityType.WEIGHT) }
-    var weightUnit by remember { mutableStateOf(WeightUnit.G) }
-    var quantity by remember { mutableStateOf("") }
+    var quantityType by remember { mutableStateOf(editItem?.quantityType ?: QuantityType.WEIGHT) }
+    var weightUnit by remember { mutableStateOf(editItem?.weightUnit ?: WeightUnit.G) }
+    var quantity by remember {
+        mutableStateOf(editItem?.quantity?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } ?: "")
+    }
     var quantityError by remember { mutableStateOf(false) }
 
     // 标签
-    var tags by remember { mutableStateOf("") }
-    var locationId by remember { mutableStateOf<Long?>(null) }
-    var trackDailyCost by remember { mutableStateOf(false) }
+    var tags by remember { mutableStateOf(editItem?.tags?.joinToString(",") ?: "") }
+    var locationId by remember { mutableStateOf<Long?>(editItem?.locationId) }
+    var trackDailyCost by remember { mutableStateOf(editItem?.trackDailyCost ?: false) }
 
     val selectedCategoryName = categories.firstOrNull { it.id == selectedCategoryId }?.name ?: "请选择"
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("添加宠物用品", style = MaterialTheme.typography.titleLarge) },
+        title = { Text(if (editItem == null) "添加宠物用品" else "编辑宠物用品", style = MaterialTheme.typography.titleLarge) },
         text = {
             Column(
                 modifier = Modifier
@@ -306,13 +312,15 @@ fun AddPetItemDialog(
                             quantityType,
                             weightUnit,
                             quantityValue!!,
-                            tags
+                            tags,
+                            locationId,
+                            trackDailyCost
                         )
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Primary)
             ) {
-                Text("确认添加")
+                Text(if (editItem == null) "确认添加" else "保存")
             }
         },
         dismissButton = {
