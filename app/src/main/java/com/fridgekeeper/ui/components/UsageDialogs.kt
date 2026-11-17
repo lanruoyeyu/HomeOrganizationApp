@@ -156,7 +156,9 @@ fun UseItemDialog(
     )
 
     if (showDatePicker) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = usedAt)
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = DateUtils.clampToPickerRange(usedAt)
+        )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {

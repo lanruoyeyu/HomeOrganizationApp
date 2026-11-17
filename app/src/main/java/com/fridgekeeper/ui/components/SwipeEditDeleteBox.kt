@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fridgekeeper.ui.theme.AlertRed
+import com.fridgekeeper.ui.theme.LocalSpacingScale
 import com.fridgekeeper.ui.theme.Primary
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -46,6 +47,7 @@ fun SwipeEditDeleteBox(
     content: @Composable () -> Unit
 ) {
     val density = LocalDensity.current
+    val spacingScale = LocalSpacingScale.current
     val actionWidthPx = with(density) { 144.dp.toPx() }
     val scope = rememberCoroutineScope()
     val offsetX = remember { Animatable(0f) }
@@ -57,7 +59,7 @@ fun SwipeEditDeleteBox(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .padding(horizontal = 16.dp, vertical = 4.dp * spacingScale)
     ) {
         // 背景操作层：编辑 / 删除
         Row(

@@ -1,6 +1,8 @@
 package com.fridgekeeper
 
 import android.app.Application
+import com.fridgekeeper.data.backup.DataBackupManager
+import com.fridgekeeper.data.ledger.LedgerExcelManager
 import com.fridgekeeper.data.local.AppDatabase
 import com.fridgekeeper.data.remote.LedgerAiParser
 import com.fridgekeeper.data.repository.CatalogRepository
@@ -13,9 +15,20 @@ import com.fridgekeeper.data.repository.MedicineRepository
 import com.fridgekeeper.data.repository.PetRepository
 import com.fridgekeeper.data.repository.StatsRepository
 import com.fridgekeeper.data.repository.UsageRecordRepository
+import com.fridgekeeper.data.repository.WelfareRepository
+import com.fridgekeeper.data.settings.AppSettings
 import com.fridgekeeper.data.settings.LedgerSettings
+import com.fridgekeeper.notification.ReminderScheduler
+import com.fridgekeeper.tassetbook.data.AppRepository
 
 class FridgeApp : Application() {
+
+    override fun onCreate() {
+        super.onCreate()
+        AppRepository.init(filesDir)
+        ReminderScheduler.schedule(this)
+    }
+
     val database: AppDatabase by lazy { AppDatabase.getDatabase(this) }
     val repository: FridgeRepository by lazy { FridgeRepository.getRepository(database) }
     val digitalRepository: DigitalRepository by lazy { DigitalRepository(database.digitalItemDao()) }
@@ -54,5 +67,11 @@ class FridgeApp : Application() {
         LedgerRepository(database.ledgerDao())
     }
     val ledgerSettings: LedgerSettings by lazy { LedgerSettings(this) }
+    val appSettings: AppSettings by lazy { AppSettings(this) }
     val ledgerAiParser: LedgerAiParser by lazy { LedgerAiParser(ledgerSettings) }
+    val ledgerExcelManager: LedgerExcelManager by lazy { LedgerExcelManager(this) }
+    val dataBackupManager: DataBackupManager by lazy { DataBackupManager(this, database) }
+    val welfareRepository: WelfareRepository by lazy {
+        WelfareRepository(database.couponDao(), database.checkinDao())
+    }
 }

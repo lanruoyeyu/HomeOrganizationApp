@@ -28,8 +28,19 @@ fun LedgerItemCard(
     item: LedgerItemUiState,
     modifier: Modifier = Modifier
 ) {
-    val amountColor = if (item.isExpense) LedgerExpenseColor else LedgerIncomeColor
-    val sign = if (item.isExpense) "-" else "+"
+    val amountColor = when {
+        item.isExpense -> LedgerExpenseColor
+        item.isIncome -> LedgerIncomeColor
+        else -> LedgerTransferColor
+    }
+    val sign = when {
+        item.isExpense -> "-"
+        item.isIncome -> "+"
+        else -> ""
+    }
+    val meta = listOf(item.book, item.tags)
+        .filter { it.isNotBlank() }
+        .joinToString(" · ")
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -40,32 +51,34 @@ fun LedgerItemCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = ledgerEmoji(item.category), fontSize = 26.sp)
+            Text(text = ledgerEmoji(item.category), fontSize = 22.sp)
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = item.category,
+                        text = item.categoryLabel,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF212121)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = Color(0xFFF0F0F0)
-                    ) {
-                        Text(
-                            text = item.paymentMethod,
-                            fontSize = 10.sp,
-                            color = Color(0xFF888888),
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
-                        )
+                    if (item.paymentMethod.isNotBlank()) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFF0F0F0)
+                        ) {
+                            Text(
+                                text = item.paymentMethod,
+                                fontSize = 10.sp,
+                                color = Color(0xFF888888),
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
                     }
                 }
 
@@ -81,7 +94,9 @@ fun LedgerItemCard(
                 Spacer(modifier = Modifier.height(3.dp))
 
                 Text(
-                    text = DateUtils.formatDate(item.occurredAt),
+                    text = listOf(DateUtils.formatDate(item.occurredAt), meta)
+                        .filter { it.isNotBlank() }
+                        .joinToString(" · "),
                     fontSize = 11.sp,
                     color = Color(0xFF9E9E9E)
                 )
@@ -97,7 +112,7 @@ fun LedgerItemCard(
                     color = amountColor
                 )
                 Text(
-                    text = if (item.isExpense) "支出" else "收入",
+                    text = item.typeName,
                     fontSize = 11.sp,
                     color = Color(0xFF9E9E9E)
                 )
@@ -115,41 +130,49 @@ fun LedgerMonthSummary(
 ) {
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF00695C))
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Text(
-                text = "本月结余",
-                fontSize = 12.sp,
-                color = Color(0xFFB2DFDB)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = (if (balance >= 0) "¥${formatLedgerAmount(balance)}" else "-¥${formatLedgerAmount(-balance)}"),
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text("本月支出", fontSize = 11.sp, color = Color(0xFFB2DFDB))
+                Text(
+                    text = "本月结余",
+                    fontSize = 11.sp,
+                    color = Color(0xFFB2DFDB)
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = (if (balance >= 0) "¥${formatLedgerAmount(balance)}"
+                    else "-¥${formatLedgerAmount(-balance)}"),
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("支出", fontSize = 10.sp, color = Color(0xFFB2DFDB))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "¥${formatLedgerAmount(monthExpense)}",
-                        fontSize = 16.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White
                     )
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("本月收入", fontSize = 11.sp, color = Color(0xFFB2DFDB))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("收入", fontSize = 10.sp, color = Color(0xFFB2DFDB))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "¥${formatLedgerAmount(monthIncome)}",
-                        fontSize = 16.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFFA5D6A7)
                     )

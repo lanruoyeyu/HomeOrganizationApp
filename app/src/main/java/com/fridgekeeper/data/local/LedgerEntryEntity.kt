@@ -1,23 +1,51 @@
 package com.fridgekeeper.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * 记账条目
+ * 记账条目，字段口径与 iCost 记账模板一致
  */
 @Entity(tableName = "ledger_entries")
 data class LedgerEntryEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
-    /** 类型：EXPENSE 支出 / INCOME 收入 */
+    /** 统计类型：EXPENSE 支出 / INCOME 收入 / TRANSFER 转账等不计收支 */
     val type: String,
     /** 金额，正数，单位元 */
     val amount: Double,
-    /** 分类，如 餐饮、交通、工资 */
+    /** 一级分类，如 餐饮、日用、工资 */
     val category: String,
-    /** 支付方式：微信/支付宝/银行卡/现金/其他 */
+    /** 二级分类，如 午餐、猫粮 */
+    @ColumnInfo(defaultValue = "''")
+    val subcategory: String = "",
+    /** 账户1（模板列名），如 微信、广发信用卡 */
     val paymentMethod: String,
+    /** 账户2，转账、还款等场景使用 */
+    @ColumnInfo(defaultValue = "''")
+    val account2: String = "",
+    /** 标签，如 #淘宝 */
+    @ColumnInfo(defaultValue = "''")
+    val tags: String = "",
+    /** 账本，如 日常账本 */
+    @ColumnInfo(defaultValue = "'日常账本'")
+    val book: String = "日常账本",
+    /** 货币 */
+    @ColumnInfo(defaultValue = "'CNY'")
+    val currency: String = "CNY",
+    /** 模板「类型」原始名称，如 支出、收入、转账、分期本金 */
+    @ColumnInfo(defaultValue = "''")
+    val typeLabel: String = "",
+    /** 模板「退款」金额 */
+    @ColumnInfo(defaultValue = "0")
+    val refund: Double = 0.0,
+    /** 模板「优惠」金额 */
+    @ColumnInfo(defaultValue = "0")
+    val discount: Double = 0.0,
+    /** 模板「手续费」金额 */
+    @ColumnInfo(defaultValue = "0")
+    val fee: Double = 0.0,
     /** 备注 */
     val note: String,
     /** 发生时间 */
@@ -29,13 +57,6 @@ data class LedgerEntryEntity(
     companion object {
         const val TYPE_EXPENSE = "EXPENSE"
         const val TYPE_INCOME = "INCOME"
-
-        val EXPENSE_CATEGORIES = listOf(
-            "餐饮", "交通", "购物", "居住", "娱乐", "医疗", "教育", "人情", "其他"
-        )
-        val INCOME_CATEGORIES = listOf(
-            "工资", "奖金", "理财", "报销", "退款", "兼职", "其他"
-        )
-        val PAYMENT_METHODS = listOf("微信", "支付宝", "银行卡", "现金", "其他")
+        const val TYPE_TRANSFER = "TRANSFER"
     }
 }

@@ -14,6 +14,23 @@ object DateUtils {
     /** 药品等物品的临期提醒阈值（天） */
     const val EXPIRING_SOON_DAYS = 10
 
+    /** Material3 DatePicker 只支持 1900-2100，越界会抛异常 */
+    private val MIN_PICKER_MILLIS: Long = Calendar.getInstance().apply {
+        clear()
+        set(1900, Calendar.JANUARY, 1)
+    }.timeInMillis
+
+    private val MAX_PICKER_MILLIS: Long = Calendar.getInstance().apply {
+        clear()
+        set(2100, Calendar.DECEMBER, 31)
+    }.timeInMillis
+
+    /**
+     * 把时间戳收敛到日期选择器支持的范围内，避免非法数据导致弹窗崩溃
+     */
+    fun clampToPickerRange(timestamp: Long): Long =
+        timestamp.coerceIn(MIN_PICKER_MILLIS, MAX_PICKER_MILLIS)
+
     /**
      * 计算保质期剩余天数 = (过期时间 - 当前时间) / 一天毫秒数，向下取整
      */

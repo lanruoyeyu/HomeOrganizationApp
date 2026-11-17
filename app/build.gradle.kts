@@ -98,6 +98,10 @@ dependencies {
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
+    // 股票做T模块
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("com.google.code.gson:gson:2.11.0")
+
     testImplementation("junit:junit:4.13.2")
 
     // Debug

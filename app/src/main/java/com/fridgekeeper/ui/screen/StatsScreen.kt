@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.AlertDialog
@@ -54,6 +55,7 @@ import com.fridgekeeper.ui.components.ItemPickerDialog
 import com.fridgekeeper.ui.components.MarkerInfoSheet
 import com.fridgekeeper.ui.components.RoomMap
 import com.fridgekeeper.ui.components.StatsCard
+import com.fridgekeeper.ui.theme.LocalSpacingScale
 import com.fridgekeeper.ui.theme.Primary
 import com.fridgekeeper.viewmodel.StatsViewModel
 
@@ -62,8 +64,9 @@ private const val MAP_MODE_MAP = 1
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatsScreen(viewModel: StatsViewModel) {
+fun StatsScreen(viewModel: StatsViewModel, onOpenDrawer: () -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
+    val spacingScale = LocalSpacingScale.current
     val markers by viewModel.markers.collectAsState()
     val places by viewModel.places.collectAsState()
     val categories by viewModel.categories.collectAsState()
@@ -86,6 +89,11 @@ fun StatsScreen(viewModel: StatsViewModel) {
         topBar = {
             TopAppBar(
                 title = { Text("物品统计", color = Color.White, fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(Icons.Filled.Menu, contentDescription = "打开设置", tint = Color.White)
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary)
             )
         }
@@ -106,7 +114,7 @@ fun StatsScreen(viewModel: StatsViewModel) {
                     .padding(paddingValues)
                     .verticalScroll(rememberScrollState())
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp * spacingScale))
 
                 StatsCard(icon = "📦", title = "冰箱物品", stats = uiState.fridgeStats)
                 StatsCard(icon = "📱", title = "数码产品", stats = uiState.digitalStats)
@@ -125,7 +133,7 @@ fun StatsScreen(viewModel: StatsViewModel) {
                     )
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp * spacingScale))
 
                 // ---------- 物品分类管理 ----------
                 SectionHeader(
@@ -153,7 +161,7 @@ fun StatsScreen(viewModel: StatsViewModel) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp * spacingScale))
 
                 // ---------- 房间地图 ----------
                 Row(
@@ -215,7 +223,7 @@ fun StatsScreen(viewModel: StatsViewModel) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(8.dp * spacingScale))
 
                 if (mapMode == MAP_MODE_MAP) {
                     RoomMap(
@@ -365,7 +373,7 @@ private fun CategoryCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp * LocalSpacingScale.current),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -441,7 +449,7 @@ private fun MapListView(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp * LocalSpacingScale.current),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(text = "📍", fontSize = 20.sp)
@@ -472,7 +480,7 @@ private fun MapListView(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp * LocalSpacingScale.current),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(text = marker.itemType.icon, fontSize = 24.sp)

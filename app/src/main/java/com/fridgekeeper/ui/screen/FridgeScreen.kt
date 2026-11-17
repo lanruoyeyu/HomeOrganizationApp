@@ -9,6 +9,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -37,12 +39,13 @@ import com.fridgekeeper.ui.components.StatsBar
 import com.fridgekeeper.ui.components.SwipeEditDeleteBox
 import com.fridgekeeper.ui.components.UsageHistoryDialog
 import com.fridgekeeper.ui.components.UseItemDialog
+import com.fridgekeeper.ui.theme.LocalSpacingScale
 import com.fridgekeeper.ui.theme.Primary
 import com.fridgekeeper.viewmodel.FridgeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FridgeScreen(viewModel: FridgeViewModel) {
+fun FridgeScreen(viewModel: FridgeViewModel, onBack: (() -> Unit)? = null) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<ItemUiState?>(null) }
@@ -52,7 +55,14 @@ fun FridgeScreen(viewModel: FridgeViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("物品收纳助手", color = Color.White, fontWeight = FontWeight.Bold) },
+                title = { Text("食品", color = Color.White, fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    onBack?.let { back ->
+                        IconButton(onClick = back) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "返回", tint = Color.White)
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary)
             )
         },
@@ -107,7 +117,7 @@ fun FridgeScreen(viewModel: FridgeViewModel) {
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(vertical = 8.dp)
+                        contentPadding = PaddingValues(vertical = 8.dp * LocalSpacingScale.current)
                     ) {
                         items(
                             items = uiState.items,

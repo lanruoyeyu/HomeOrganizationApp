@@ -1,6 +1,9 @@
 package com.fridgekeeper.ui.screen
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -8,21 +11,29 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -30,11 +41,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,26 +74,135 @@ import com.fridgekeeper.ui.components.SwipeEditDeleteBox
 import com.fridgekeeper.ui.components.formatLedgerAmount
 import com.fridgekeeper.ui.components.ledgerEmoji
 import com.fridgekeeper.ui.theme.AlertRed
+import com.fridgekeeper.ui.theme.LocalSpacingScale
 import com.fridgekeeper.ui.theme.NormalGreen
 import com.fridgekeeper.ui.theme.Primary
 import com.fridgekeeper.viewmodel.LedgerViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+private const val XLSX_MIME =
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LedgerScreen(viewModel: LedgerViewModel) {
+fun LedgerScreen(viewModel: LedgerViewModel, onOpenDrawer: () -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
+    val spacingScale = LocalSpacingScale.current
+    val backupState by viewModel.backupState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
     var showAdd by remember { mutableStateOf(false) }
+    var showSmartEntry by remember { mutableStateOf(false) }
     var editTarget by remember { mutableStateOf<LedgerItemUiState?>(null) }
     var showSettings by remember { mutableStateOf(false) }
+    var showBackupMenu by remember { mutableStateOf(false) }
+    var showImportConfirm by remember { mutableStateOf(false) }
     var inputText by rememberSaveable { mutableStateOf("") }
 
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let(viewModel::exportData)
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let(viewModel::importData)
+    }
+    val templateLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(XLSX_MIME)
+    ) { uri ->
+        uri?.let(viewModel::exportLedgerTemplate)
+    }
+    val excelImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let(viewModel::importLedgerExcel)
+    }
+
+    LaunchedEffect(backupState.message) {
+        val message = backupState.message
+        if (message != null) {
+            snackbarHostState.showSnackbar(message)
+            viewModel.consumeBackupMessage()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
                     Text("记账本", color = Color.White, fontWeight = FontWeight.Bold)
                 },
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(Icons.Filled.Menu, contentDescription = "打开设置", tint = Color.White)
+                    }
+                },
                 actions = {
+                    if (backupState.isRunning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .size(22.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    }
+                    Box {
+                        IconButton(
+                            onClick = { showBackupMenu = true },
+                            enabled = !backupState.isRunning
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.MoreVert,
+                                contentDescription = "数据备份",
+                                tint = Color.White
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showBackupMenu,
+                            onDismissRequest = { showBackupMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("下载记账模板") },
+                                onClick = {
+                                    showBackupMenu = false
+                                    templateLauncher.launch("记账模板_iCost.xlsx")
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("从表格导入记账") },
+                                onClick = {
+                                    showBackupMenu = false
+                                    excelImportLauncher.launch(
+                                        arrayOf(XLSX_MIME, "application/vnd.ms-excel", "application/octet-stream")
+                                    )
+                                }
+                            )
+                            HorizontalDivider(color = Color(0xFFEEEEEE))
+                            DropdownMenuItem(
+                                text = { Text("导出全部数据") },
+                                onClick = {
+                                    showBackupMenu = false
+                                    val timestamp = SimpleDateFormat(
+                                        "yyyyMMdd_HHmmss",
+                                        Locale.CHINA
+                                    ).format(Date())
+                                    exportLauncher.launch("记账收纳备份_$timestamp.json")
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("导入数据备份") },
+                                onClick = {
+                                    showBackupMenu = false
+                                    showImportConfirm = true
+                                }
+                            )
+                        }
+                    }
                     IconButton(onClick = { showSettings = true }) {
                         Icon(
                             imageVector = Icons.Filled.Settings,
@@ -93,12 +216,12 @@ fun LedgerScreen(viewModel: LedgerViewModel) {
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showAdd = true },
+                onClick = { showSmartEntry = true },
                 containerColor = Primary
             ) {
                 Icon(
                     imageVector = Icons.Filled.Add,
-                    contentDescription = "手动记一笔",
+                    contentDescription = "记一笔",
                     tint = Color.White
                 )
             }
@@ -108,33 +231,14 @@ fun LedgerScreen(viewModel: LedgerViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(vertical = 16.dp * spacingScale),
+            verticalArrangement = Arrangement.spacedBy(12.dp * spacingScale)
         ) {
             item {
                 LedgerMonthSummary(
                     monthExpense = uiState.monthExpense,
                     monthIncome = uiState.monthIncome,
                     balance = uiState.monthBalance,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
-
-            item {
-                SmartEntryCard(
-                    inputText = inputText,
-                    onInputChange = { inputText = it },
-                    isParsing = uiState.isParsing,
-                    parsedItems = uiState.parsedItems,
-                    error = uiState.parseError,
-                    hint = uiState.parseHint,
-                    onParse = { viewModel.parseInput(inputText) },
-                    onRemove = { viewModel.removeParsedItem(it) },
-                    onConfirm = {
-                        viewModel.confirmParsed(inputText)
-                        inputText = ""
-                    },
-                    onClear = { viewModel.clearParsed() },
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
@@ -152,7 +256,7 @@ fun LedgerScreen(viewModel: LedgerViewModel) {
             if (uiState.items.isEmpty()) {
                 item {
                     Text(
-                        text = "还没有记账记录\n在上方输入一句话，或点右下角 + 手动记一笔",
+                        text = "还没有记账记录\n点右下角 + 用一句话记账，或从右上角导入表格",
                         fontSize = 14.sp,
                         color = Color(0xFF888888),
                         textAlign = TextAlign.Center,
@@ -176,11 +280,64 @@ fun LedgerScreen(viewModel: LedgerViewModel) {
         }
     }
 
+    if (showImportConfirm) {
+        AlertDialog(
+            onDismissRequest = { showImportConfirm = false },
+            title = { Text("导入并覆盖当前数据？") },
+            text = {
+                Text("将替换所有记账、物品、分类、位置和使用记录，大模型设置保持不变。建议先导出备份。")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showImportConfirm = false
+                        importLauncher.launch(arrayOf("application/json", "text/plain"))
+                    }
+                ) {
+                    Text("选择备份文件")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportConfirm = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    if (showSmartEntry) {
+        SmartEntryDialog(
+            inputText = inputText,
+            onInputChange = { inputText = it },
+            isParsing = uiState.isParsing,
+            parsedItems = uiState.parsedItems,
+            error = uiState.parseError,
+            hint = uiState.parseHint,
+            onParse = { viewModel.parseInput(inputText) },
+            onRemove = { viewModel.removeParsedItem(it) },
+            onConfirm = {
+                viewModel.confirmParsed(inputText)
+                inputText = ""
+                showSmartEntry = false
+            },
+            onClear = { viewModel.clearParsed() },
+            onManual = {
+                viewModel.clearParsed()
+                showSmartEntry = false
+                showAdd = true
+            },
+            onDismiss = {
+                viewModel.clearParsed()
+                showSmartEntry = false
+            }
+        )
+    }
+
     if (showAdd) {
         AddLedgerDialog(
             onDismiss = { showAdd = false },
-            onConfirm = { type, amount, category, payment, note, occurredAt ->
-                viewModel.addEntry(type, amount, category, payment, note, occurredAt)
+            onConfirm = { draft ->
+                viewModel.addEntry(draft)
                 showAdd = false
             }
         )
@@ -190,10 +347,8 @@ fun LedgerScreen(viewModel: LedgerViewModel) {
         AddLedgerDialog(
             editItem = target,
             onDismiss = { editTarget = null },
-            onConfirm = { type, amount, category, payment, note, occurredAt ->
-                viewModel.updateEntry(
-                    target.id, type, amount, category, payment, note, occurredAt
-                )
+            onConfirm = { draft ->
+                viewModel.updateEntry(target.id, draft)
                 editTarget = null
             }
         )
@@ -213,7 +368,7 @@ fun LedgerScreen(viewModel: LedgerViewModel) {
 }
 
 @Composable
-private fun SmartEntryCard(
+private fun SmartEntryDialog(
     inputText: String,
     onInputChange: (String) -> Unit,
     isParsing: Boolean,
@@ -224,28 +379,30 @@ private fun SmartEntryCard(
     onRemove: (Int) -> Unit,
     onConfirm: () -> Unit,
     onClear: () -> Unit,
-    modifier: Modifier = Modifier
+    onManual: () -> Unit,
+    onDismiss: () -> Unit
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(text = "🤖", fontSize = 18.sp)
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "智能记账",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
                     color = Color(0xFF212121)
                 )
             }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
             OutlinedTextField(
                 value = inputText,
                 onValueChange = onInputChange,
@@ -327,8 +484,19 @@ private fun SmartEntryCard(
                     }
                 }
             }
+
+            TextButton(
+                onClick = onManual,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("改为手动记一笔", fontSize = 12.sp, color = Color(0xFF888888))
+            }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
         }
-    }
+    )
 }
 
 @Composable
@@ -350,7 +518,11 @@ private fun ParsedLedgerRow(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = if (item.note.isBlank()) item.category else "${item.category} · ${item.note}",
+                text = if (item.subcategory.isBlank()) {
+                    item.category
+                } else {
+                    "${item.category} · ${item.subcategory}"
+                },
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFF212121)

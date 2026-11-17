@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fridgekeeper.model.ModuleStats
+import com.fridgekeeper.ui.theme.LocalSpacingScale
 import com.fridgekeeper.ui.theme.Primary
 import java.util.Locale
 
@@ -30,10 +31,11 @@ fun StatsCard(
     stats: ModuleStats,
     modifier: Modifier = Modifier
 ) {
+    val spacingScale = LocalSpacingScale.current
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 4.dp * spacingScale),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

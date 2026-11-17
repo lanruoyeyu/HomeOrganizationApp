@@ -12,6 +12,8 @@ class LedgerRepository(private val ledgerDao: LedgerDao) {
 
     suspend fun add(entry: LedgerEntryEntity): Long = ledgerDao.insert(entry)
 
+    suspend fun addAll(entries: List<LedgerEntryEntity>) = ledgerDao.insertAll(entries)
+
     suspend fun update(entry: LedgerEntryEntity) = ledgerDao.update(entry)
 
     suspend fun delete(id: Long) = ledgerDao.delete(id)

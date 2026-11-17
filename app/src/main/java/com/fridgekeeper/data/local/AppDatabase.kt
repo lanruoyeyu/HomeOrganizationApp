@@ -22,9 +22,12 @@ import com.fridgekeeper.model.ItemCategory
         SubcategoryEntity::class,
         LocationEntity::class,
         UsageRecordEntity::class,
-        LedgerEntryEntity::class
+        LedgerEntryEntity::class,
+        CouponEntity::class,
+        CheckinTaskEntity::class,
+        CheckinRecordEntity::class
     ],
-    version = 9,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -41,6 +44,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun locationDao(): LocationDao
     abstract fun usageRecordDao(): UsageRecordDao
     abstract fun ledgerDao(): LedgerDao
+    abstract fun couponDao(): CouponDao
+    abstract fun checkinDao(): CheckinDao
 
     companion object {
         @Volatile
@@ -155,6 +160,59 @@ abstract class AppDatabase : RoomDatabase() {
                         "`rawInput` TEXT NOT NULL, " +
                         "`createdAt` INTEGER NOT NULL)"
                 )
+            }
+        }
+
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `coupons` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`source` TEXT NOT NULL, " +
+                        "`type` TEXT NOT NULL, " +
+                        "`threshold` REAL NOT NULL, " +
+                        "`amount` REAL NOT NULL, " +
+                        "`validFrom` INTEGER, " +
+                        "`validUntil` INTEGER NOT NULL, " +
+                        "`scene` TEXT NOT NULL, " +
+                        "`isUsed` INTEGER NOT NULL, " +
+                        "`usedAt` INTEGER, " +
+                        "`note` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`updatedAt` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `checkin_tasks` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`platform` TEXT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`cycle` TEXT NOT NULL, " +
+                        "`lastCheckinAt` INTEGER, " +
+                        "`remindHour` INTEGER NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`updatedAt` INTEGER NOT NULL)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `checkin_records` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`taskId` INTEGER NOT NULL, " +
+                        "`checkedAt` INTEGER NOT NULL, " +
+                        "`note` TEXT NOT NULL)"
+                )
+            }
+        }
+
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `ledger_entries` ADD COLUMN `subcategory` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `ledger_entries` ADD COLUMN `account2` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `ledger_entries` ADD COLUMN `tags` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `ledger_entries` ADD COLUMN `book` TEXT NOT NULL DEFAULT '日常账本'")
+                db.execSQL("ALTER TABLE `ledger_entries` ADD COLUMN `currency` TEXT NOT NULL DEFAULT 'CNY'")
+                db.execSQL("ALTER TABLE `ledger_entries` ADD COLUMN `typeLabel` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `ledger_entries` ADD COLUMN `refund` REAL NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `ledger_entries` ADD COLUMN `discount` REAL NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `ledger_entries` ADD COLUMN `fee` REAL NOT NULL DEFAULT 0")
             }
         }
 
@@ -284,7 +342,9 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_5_6,
                         MIGRATION_6_7,
                         MIGRATION_7_8,
-                        MIGRATION_8_9
+                        MIGRATION_8_9,
+                        MIGRATION_9_10,
+                        MIGRATION_10_11
                     )
                     .addCallback(SEED_CALLBACK)
                     .fallbackToDestructiveMigration()

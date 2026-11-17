@@ -1,28 +1,42 @@
 package com.fridgekeeper.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fridgekeeper.data.backup.DataBackupManager
+import com.fridgekeeper.data.ledger.LedgerExcelManager
+import com.fridgekeeper.data.ledger.LedgerTaxonomy
 import com.fridgekeeper.data.local.LedgerEntryEntity
 import com.fridgekeeper.data.remote.LedgerAiParser
 import com.fridgekeeper.data.remote.LedgerLocalParser
 import com.fridgekeeper.data.repository.LedgerRepository
 import com.fridgekeeper.data.settings.LedgerSettings
 import com.fridgekeeper.model.LedgerConfig
+import com.fridgekeeper.model.LedgerDraft
 import com.fridgekeeper.model.LedgerItemUiState
 import com.fridgekeeper.model.LedgerUiState
 import com.fridgekeeper.model.ParsedLedgerEntry
+import com.fridgekeeper.tassetbook.data.AppRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
+data class BackupUiState(
+    val isRunning: Boolean = false,
+    val message: String? = null
+)
+
 class LedgerViewModel(
     private val repository: LedgerRepository,
     private val aiParser: LedgerAiParser,
-    private val settings: LedgerSettings
+    private val settings: LedgerSettings,
+    private val backupManager: DataBackupManager,
+    private val excelManager: LedgerExcelManager
 ) : ViewModel() {
 
     private data class ParseState(
@@ -33,6 +47,8 @@ class LedgerViewModel(
     )
 
     private val parseState = MutableStateFlow(ParseState())
+    private val _backupState = MutableStateFlow(BackupUiState())
+    val backupState: StateFlow<BackupUiState> = _backupState.asStateFlow()
 
     val uiState: StateFlow<LedgerUiState> = combine(
         repository.observeAll(),
@@ -133,54 +149,146 @@ class LedgerViewModel(
         parseState.value = ParseState()
     }
 
-    fun addEntry(
-        type: String,
-        amount: Double,
-        category: String,
-        paymentMethod: String,
-        note: String,
-        occurredAt: Long
-    ) {
+    fun addEntry(draft: LedgerDraft) {
         viewModelScope.launch {
             repository.add(
                 LedgerEntryEntity(
-                    type = type,
-                    amount = amount,
-                    category = category,
-                    paymentMethod = paymentMethod,
-                    note = note,
-                    occurredAt = occurredAt
+                    type = draft.type,
+                    amount = draft.amount,
+                    category = draft.category,
+                    subcategory = draft.subcategory,
+                    paymentMethod = draft.account,
+                    account2 = draft.account2,
+                    tags = draft.tags,
+                    book = draft.book,
+                    typeLabel = draft.typeLabel.ifBlank {
+                        LedgerTaxonomy.templateTypeOf(draft.type)
+                    },
+                    note = draft.note,
+                    occurredAt = draft.occurredAt
                 )
             )
         }
     }
 
-    fun updateEntry(
-        id: Long,
-        type: String,
-        amount: Double,
-        category: String,
-        paymentMethod: String,
-        note: String,
-        occurredAt: Long
-    ) {
+    fun updateEntry(id: Long, draft: LedgerDraft) {
         viewModelScope.launch {
             val existing = repository.getById(id) ?: return@launch
             repository.update(
                 existing.copy(
-                    type = type,
-                    amount = amount,
-                    category = category,
-                    paymentMethod = paymentMethod,
-                    note = note,
-                    occurredAt = occurredAt
+                    type = draft.type,
+                    amount = draft.amount,
+                    category = draft.category,
+                    subcategory = draft.subcategory,
+                    paymentMethod = draft.account,
+                    account2 = draft.account2,
+                    tags = draft.tags,
+                    book = draft.book,
+                    typeLabel = draft.typeLabel.ifBlank {
+                        LedgerTaxonomy.templateTypeOf(draft.type)
+                    },
+                    note = draft.note,
+                    occurredAt = draft.occurredAt
                 )
+            )
+        }
+    }
+
+    /** 从 iCost 模板表格导入记账，保留现有记录并追加 */
+    fun importLedgerExcel(source: Uri) {
+        if (_backupState.value.isRunning) return
+        viewModelScope.launch {
+            _backupState.value = BackupUiState(isRunning = true)
+            var createdAccounts = 0
+            runCatching {
+                val result = excelManager.importFrom(source)
+                repository.addAll(result.entries)
+                // 表格中的账户若在资产中不存在，则自动创建，后续可手动调整
+                createdAccounts = AppRepository.get().ensureLedgerAccounts(
+                    result.entries.flatMap { listOf(it.paymentMethod, it.account2) }
+                )
+                result
+            }.fold(
+                onSuccess = { result ->
+                    val skipped = if (result.skippedRows > 0) {
+                        "，跳过 ${result.skippedRows} 行"
+                    } else {
+                        ""
+                    }
+                    val assetDetail = if (createdAccounts > 0) {
+                        "，自动添加 $createdAccounts 个资产"
+                    } else {
+                        ""
+                    }
+                    val detail = result.hint?.let { "（$it）" }.orEmpty()
+                    _backupState.value = BackupUiState(
+                        message = "表格导入完成：新增 ${result.entries.size} 条$skipped$assetDetail$detail"
+                    )
+                },
+                onFailure = { error ->
+                    _backupState.value = BackupUiState(
+                        message = "表格导入失败：${error.message ?: "未知错误"}"
+                    )
+                }
+            )
+        }
+    }
+
+    /** 导出空白记账模板 */
+    fun exportLedgerTemplate(destination: Uri) {
+        if (_backupState.value.isRunning) return
+        viewModelScope.launch {
+            _backupState.value = BackupUiState(isRunning = true)
+            runCatching { excelManager.writeTemplateTo(destination) }.fold(
+                onSuccess = {
+                    _backupState.value = BackupUiState(message = "记账模板已保存")
+                },
+                onFailure = { error ->
+                    _backupState.value = BackupUiState(
+                        message = "模板下载失败：${error.message ?: "未知错误"}"
+                    )
+                }
             )
         }
     }
 
     fun deleteEntry(id: Long) {
         viewModelScope.launch { repository.delete(id) }
+    }
+
+    fun exportData(destination: Uri) {
+        runBackup("导出", destination, backupManager::exportData)
+    }
+
+    fun importData(source: Uri) {
+        runBackup("导入", source, backupManager::importData)
+    }
+
+    fun consumeBackupMessage() {
+        _backupState.value = _backupState.value.copy(message = null)
+    }
+
+    private fun runBackup(
+        action: String,
+        uri: Uri,
+        operation: suspend (Uri) -> Int
+    ) {
+        if (_backupState.value.isRunning) return
+        viewModelScope.launch {
+            _backupState.value = BackupUiState(isRunning = true)
+            runCatching { operation(uri) }.fold(
+                onSuccess = { count ->
+                    _backupState.value = BackupUiState(
+                        message = "${action}完成，共 $count 条记录"
+                    )
+                },
+                onFailure = { error ->
+                    _backupState.value = BackupUiState(
+                        message = "${action}失败：${error.message ?: "未知错误"}"
+                    )
+                }
+            )
+        }
     }
 
     fun loadConfig(): LedgerConfig = LedgerConfig(
@@ -199,7 +307,10 @@ class LedgerViewModel(
         type = type,
         amount = amount,
         category = category,
+        subcategory = subcategory,
         paymentMethod = paymentMethod,
+        book = LedgerTaxonomy.DEFAULT_BOOK,
+        typeLabel = LedgerTaxonomy.templateTypeOf(type),
         note = note,
         occurredAt = occurredAt,
         rawInput = rawInput

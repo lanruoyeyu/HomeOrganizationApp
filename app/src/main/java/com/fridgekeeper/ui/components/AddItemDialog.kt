@@ -224,7 +224,9 @@ fun AddItemDialog(
     )
 
     if (showStoragePicker) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = storageDate)
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = DateUtils.clampToPickerRange(storageDate)
+        )
         DatePickerDialog(
             onDismissRequest = { showStoragePicker = false },
             confirmButton = {
@@ -241,7 +243,9 @@ fun AddItemDialog(
         ) { DatePicker(state = state) }
     }
     if (showExpirationPicker) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = expirationDate)
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = DateUtils.clampToPickerRange(expirationDate)
+        )
         DatePickerDialog(
             onDismissRequest = { showExpirationPicker = false },
             confirmButton = {

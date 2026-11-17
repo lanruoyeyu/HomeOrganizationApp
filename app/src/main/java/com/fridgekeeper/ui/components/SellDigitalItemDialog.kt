@@ -128,7 +128,9 @@ fun SellDigitalItemDialog(
     )
 
     if (showDatePicker) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = sellDate)
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = DateUtils.clampToPickerRange(sellDate)
+        )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {

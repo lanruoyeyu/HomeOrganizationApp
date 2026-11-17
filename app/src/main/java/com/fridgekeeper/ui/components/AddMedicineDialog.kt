@@ -38,7 +38,7 @@ import com.fridgekeeper.ui.theme.Primary
 fun AddMedicineDialog(
     editItem: MedicineItemUiState? = null,
     onDismiss: () -> Unit,
-    onConfirm: (name: String, expiryDate: Long, price: Double) -> Unit
+    onConfirm: (name: String, expiryDate: Long, price: Double?) -> Unit
 ) {
     var name by remember { mutableStateOf(editItem?.name ?: "") }
     var nameError by remember { mutableStateOf(false) }
@@ -95,7 +95,7 @@ fun AddMedicineDialog(
                             priceError = false
                         }
                     },
-                    label = { Text("药品价格（元）") },
+                    label = { Text("药品价格（元，选填）") },
                     isError = priceError,
                     supportingText = {
                         if (priceError) Text("请输入有效的价格", color = Color.Red)
@@ -114,13 +114,15 @@ fun AddMedicineDialog(
                         nameError = true
                         hasError = true
                     }
-                    val priceValue = price.toDoubleOrNull()
-                    if (priceValue == null || priceValue <= 0) {
+                    val priceText = price.trim()
+                    val priceValue = priceText.toDoubleOrNull()
+                    // 价格选填，填了就必须是正数
+                    if (priceText.isNotEmpty() && (priceValue == null || priceValue <= 0)) {
                         priceError = true
                         hasError = true
                     }
                     if (!hasError) {
-                        onConfirm(name.trim(), expiryDate, priceValue!!)
+                        onConfirm(name.trim(), expiryDate, if (priceText.isEmpty()) null else priceValue)
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = Primary)
@@ -134,7 +136,9 @@ fun AddMedicineDialog(
     )
 
     if (showDatePicker) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = expiryDate)
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = DateUtils.clampToPickerRange(expiryDate)
+        )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {

@@ -144,7 +144,9 @@ fun AddDigitalItemDialog(
     )
 
     if (showDatePicker) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = purchaseDate)
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = DateUtils.clampToPickerRange(purchaseDate)
+        )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {

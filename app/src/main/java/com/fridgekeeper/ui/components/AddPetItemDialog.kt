@@ -330,7 +330,9 @@ fun AddPetItemDialog(
 
     // 买入时间选择器
     if (showDatePicker) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = purchaseDate)
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = DateUtils.clampToPickerRange(purchaseDate)
+        )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {

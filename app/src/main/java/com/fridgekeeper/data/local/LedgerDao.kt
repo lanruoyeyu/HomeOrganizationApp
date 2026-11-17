@@ -18,6 +18,9 @@ interface LedgerDao {
     @Insert
     suspend fun insert(entry: LedgerEntryEntity): Long
 
+    @Insert
+    suspend fun insertAll(entries: List<LedgerEntryEntity>)
+
     @Update
     suspend fun update(entry: LedgerEntryEntity)
 

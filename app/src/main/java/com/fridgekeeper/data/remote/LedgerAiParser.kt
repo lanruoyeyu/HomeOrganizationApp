@@ -1,5 +1,6 @@
 package com.fridgekeeper.data.remote
 
+import com.fridgekeeper.data.ledger.LedgerTaxonomy
 import com.fridgekeeper.data.local.LedgerEntryEntity
 import com.fridgekeeper.data.settings.LedgerSettings
 import com.fridgekeeper.model.DateUtils
@@ -42,15 +43,16 @@ class LedgerAiParser(private val settings: LedgerSettings) {
 
     private fun systemPrompt(today: String): String = """
         你是记账助手。把用户的一段中文描述解析为记账条目，只输出 JSON，不要输出任何解释。
-        输出格式：{"entries":[{"type":"EXPENSE","amount":35.5,"category":"餐饮","paymentMethod":"微信","note":"午饭","date":"$today"}]}
+        输出格式：{"entries":[{"type":"EXPENSE","amount":35.5,"category":"餐饮","subcategory":"午餐","paymentMethod":"微信","note":"午饭","date":"$today"}]}
         规则：
         1. type 只能是 EXPENSE（支出）或 INCOME（收入）。
         2. amount 为数字，单位元，必须是正数。
-        3. category：支出从 餐饮/交通/购物/居住/娱乐/医疗/教育/人情/其他 中选；收入从 工资/奖金/理财/报销/退款/兼职/其他 中选。
-        4. paymentMethod：从 微信/支付宝/银行卡/现金/其他 中选，未提及填 其他。
-        5. date：格式 yyyy-MM-dd。今天是 $today，"昨天"就减一天，未提及日期用今天。
-        6. 一句话可能包含多笔，请逐条输出；没有金额时输出空数组。
-        7. note 用简短中文，不超过 20 字。
+        3. category：支出从 餐饮/日用/宠物/交通/住房/服饰/保险/汽车/数码/投资/社交/医疗/通讯/学习/卫浴/家具/装饰/家装建材/亏损/其他支出 中选；收入从 工资/投资/其他收入 中选。
+        4. subcategory：选填，如 午餐、晚餐、猫粮、房租、打车，无法判断时留空字符串。
+        5. paymentMethod：从 微信/支付宝/现金/招商信用卡/广发信用卡/中信信用卡/交通信用卡/招商银行/建设银行/网商银行/美团月付/银河证券/其他 中选，未提及填 其他。
+        6. date：格式 yyyy-MM-dd。今天是 $today，"昨天"就减一天，未提及日期用今天。
+        7. 一句话可能包含多笔，请逐条输出；没有金额时输出空数组。
+        8. note 用简短中文，不超过 20 字。
     """.trimIndent()
 
     private fun post(payload: String): String {
@@ -108,12 +110,16 @@ class LedgerAiParser(private val settings: LedgerSettings) {
             } else {
                 LedgerEntryEntity.TYPE_EXPENSE
             }
-            val category = item.optString("category").ifBlank { "其他" }
+            val category = LedgerTaxonomy.normalizeCategory(
+                item.optString("category"),
+                type
+            )
             val note = item.optString("note").ifBlank { category }
             result += ParsedLedgerEntry(
                 type = type,
                 amount = amount,
                 category = category,
+                subcategory = item.optString("subcategory").take(20),
                 paymentMethod = item.optString("paymentMethod").ifBlank { "其他" },
                 note = note.take(30),
                 occurredAt = parseDateOrToday(item.optString("date"), now)

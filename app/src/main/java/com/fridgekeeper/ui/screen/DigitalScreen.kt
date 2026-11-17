@@ -8,6 +8,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -36,12 +38,13 @@ import com.fridgekeeper.ui.components.SellDigitalItemDialog
 import com.fridgekeeper.ui.components.SwipeEditDeleteBox
 import com.fridgekeeper.ui.components.UsageHistoryDialog
 import com.fridgekeeper.ui.components.UseItemDialog
+import com.fridgekeeper.ui.theme.LocalSpacingScale
 import com.fridgekeeper.ui.theme.Primary
 import com.fridgekeeper.viewmodel.DigitalViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DigitalScreen(viewModel: DigitalViewModel) {
+fun DigitalScreen(viewModel: DigitalViewModel, onBack: (() -> Unit)? = null) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
     var sellTarget by remember { mutableStateOf<DigitalItemUiState?>(null) }
@@ -53,6 +56,13 @@ fun DigitalScreen(viewModel: DigitalViewModel) {
         topBar = {
             TopAppBar(
                 title = { Text("数码产品", color = Color.White, fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    onBack?.let { back ->
+                        IconButton(onClick = back) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "返回", tint = Color.White)
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary)
             )
         },
@@ -97,7 +107,7 @@ fun DigitalScreen(viewModel: DigitalViewModel) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues),
-                contentPadding = PaddingValues(vertical = 8.dp)
+                contentPadding = PaddingValues(vertical = 8.dp * LocalSpacingScale.current)
             ) {
                 items(
                     items = uiState.items,
