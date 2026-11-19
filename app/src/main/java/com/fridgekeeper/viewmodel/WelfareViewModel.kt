@@ -71,10 +71,21 @@ class WelfareViewModel(
             }
             .sortedByDescending { it.unusedAmount }
 
+        // 今日展示规则：
+        // - 未在当前周期打卡（待打卡）→ 展示，排在前面
+        // - 今天刚打卡（doneToday）→ 展示为「已打卡」，排在后面
+        // - 本周/本月早些时候已打卡（非今天）→ 不再展示
+        val visibleCheckins = checkinItems
+            .filter { !it.checkedInThisPeriod || it.doneToday }
+            .sortedBy { if (!it.checkedInThisPeriod) 0 else 1 }
+        val visiblePendingCount = visibleCheckins.count { !it.checkedInThisPeriod }
+
         WelfareUiState(
             coupons = couponItems,
             sourceStats = sourceStats,
             checkins = checkinItems,
+            visibleCheckins = visibleCheckins,
+            visiblePendingCount = visiblePendingCount,
             unusedCount = unused.size,
             unusedValue = unused.sumOf { it.amount },
             expiringCount = expiring.size,

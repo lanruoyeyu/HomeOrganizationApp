@@ -130,10 +130,10 @@ fun CheckinScreen(
             ) {
                 item { CheckinWeekSummary(uiState, circleColor = circleColor) }
                 item { CheckinSectionHeader(uiState, asList = true) }
-                if (uiState.checkins.isEmpty()) {
-                    item { EmptyCheckinHint() }
+                if (uiState.visibleCheckins.isEmpty()) {
+                    item { CheckinEmptyState(uiState) }
                 } else {
-                    listItems(items = uiState.checkins, key = { it.id }) { task ->
+                    listItems(items = uiState.visibleCheckins, key = { it.id }) { task ->
                         CheckinListItem(
                             item = task,
                             circleColor = circleColor,
@@ -145,11 +145,11 @@ fun CheckinScreen(
             }
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
+                columns = GridCells.Fixed(4),
                 modifier = Modifier.fillMaxSize().padding(paddingValues),
                 contentPadding = PaddingValues(
-                    start = 12.dp,
-                    end = 12.dp,
+                    start = 10.dp,
+                    end = 10.dp,
                     top = 12.dp * spacingScale,
                     bottom = 92.dp
                 ),
@@ -164,12 +164,12 @@ fun CheckinScreen(
                     CheckinSectionHeader(uiState, asList = false)
                 }
 
-                if (uiState.checkins.isEmpty()) {
+                if (uiState.visibleCheckins.isEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }) {
-                        EmptyCheckinHint()
+                        CheckinEmptyState(uiState)
                     }
                 } else {
-                    gridItems(items = uiState.checkins, key = { it.id }) { task ->
+                    gridItems(items = uiState.visibleCheckins, key = { it.id }) { task ->
                         CheckinCard(
                             item = task,
                             circleColor = circleColor,
@@ -240,25 +240,22 @@ private fun CheckinSectionHeader(state: WelfareUiState, asList: Boolean) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "打卡项目（${state.checkins.size}）",
+                text = "打卡项目（${state.visibleCheckins.size}）",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color(0xFF212121),
                 modifier = Modifier.weight(1f)
             )
             if (state.checkins.isNotEmpty()) {
+                val pending = state.visiblePendingCount
                 Text(
-                    text = if (state.todayPendingCheckins > 0) {
-                        "还有 ${state.todayPendingCheckins} 项待打卡"
-                    } else {
-                        "已全部完成"
-                    },
+                    text = if (pending > 0) "还有 $pending 项待打卡" else "今日已全部完成",
                     fontSize = 12.sp,
-                    color = if (state.todayPendingCheckins > 0) AlertRed else NormalGreen
+                    color = if (pending > 0) AlertRed else NormalGreen
                 )
             }
         }
-        if (state.checkins.isNotEmpty()) {
+        if (state.visibleCheckins.isNotEmpty()) {
             Spacer(Modifier.height(3.dp))
             Text(
                 text = if (asList) {
@@ -270,6 +267,21 @@ private fun CheckinSectionHeader(state: WelfareUiState, asList: Boolean) {
                 color = Color(0xFF888888)
             )
         }
+    }
+}
+
+@Composable
+private fun CheckinEmptyState(state: WelfareUiState) {
+    if (state.checkins.isEmpty()) {
+        EmptyCheckinHint()
+    } else {
+        Text(
+            text = "今日打卡已全部完成\n明日继续加油",
+            fontSize = 15.sp,
+            color = NormalGreen,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp)
+        )
     }
 }
 

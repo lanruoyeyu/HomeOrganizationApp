@@ -27,7 +27,7 @@ import com.fridgekeeper.model.ItemCategory
         CheckinTaskEntity::class,
         CheckinRecordEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -216,6 +216,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `ledger_entries` ADD COLUMN `storedToInventory` INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
         private val SEED_CALLBACK = object : Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
                 seedDefaultPetCategories(db)
@@ -344,7 +352,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_7_8,
                         MIGRATION_8_9,
                         MIGRATION_9_10,
-                        MIGRATION_10_11
+                        MIGRATION_10_11,
+                        MIGRATION_11_12
                     )
                     .addCallback(SEED_CALLBACK)
                     .fallbackToDestructiveMigration()

@@ -52,6 +52,9 @@ data class LedgerEntryEntity(
     val occurredAt: Long,
     /** 原始输入（智能解析时保存） */
     val rawInput: String = "",
+    /** 记账时是否同步加入收纳物品 */
+    @ColumnInfo(defaultValue = "0")
+    val storedToInventory: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 ) {
     companion object {

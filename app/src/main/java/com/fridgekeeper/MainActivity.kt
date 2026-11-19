@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Inventory2
@@ -40,7 +39,6 @@ import com.fridgekeeper.ui.screen.CheckinScreen
 import com.fridgekeeper.ui.screen.ItemsHubScreen
 import com.fridgekeeper.ui.screen.LedgerScreen
 import com.fridgekeeper.ui.screen.SettingsScreen
-import com.fridgekeeper.ui.screen.StatsScreen
 import com.fridgekeeper.ui.screen.WelfareScreen
 import com.fridgekeeper.ui.theme.Background
 import com.fridgekeeper.ui.theme.FridgeKeeperTheme
@@ -158,7 +156,6 @@ fun MainScreen(
                                         imageVector = when (page) {
                                             AppPage.LEDGER -> Icons.Filled.AccountBalanceWallet
                                             AppPage.ITEMS -> Icons.Filled.Inventory2
-                                            AppPage.STATS -> Icons.Filled.Analytics
                                             AppPage.WELFARE -> Icons.Filled.CardGiftcard
                                             AppPage.CHECKIN -> Icons.Filled.CheckCircle
                                             AppPage.TASSET -> Icons.Filled.TrendingUp
@@ -183,10 +180,7 @@ fun MainScreen(
                             digitalViewModel = digitalViewModel,
                             petViewModel = petViewModel,
                             medicineViewModel = medicineViewModel,
-                            onOpenDrawer = openSettings
-                        )
-                        AppPage.STATS -> StatsScreen(
-                            viewModel = statsViewModel,
+                            statsViewModel = statsViewModel,
                             onOpenDrawer = openSettings
                         )
                         AppPage.WELFARE -> WelfareScreen(

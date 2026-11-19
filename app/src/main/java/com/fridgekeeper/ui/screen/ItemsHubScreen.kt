@@ -16,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Card
@@ -45,6 +46,7 @@ import com.fridgekeeper.viewmodel.DigitalViewModel
 import com.fridgekeeper.viewmodel.FridgeViewModel
 import com.fridgekeeper.viewmodel.MedicineViewModel
 import com.fridgekeeper.viewmodel.PetViewModel
+import com.fridgekeeper.viewmodel.StatsViewModel
 
 private const val SECTION_FOOD = "FOOD"
 private const val SECTION_DIGITAL = "DIGITAL"
@@ -61,11 +63,22 @@ fun ItemsHubScreen(
     digitalViewModel: DigitalViewModel,
     petViewModel: PetViewModel,
     medicineViewModel: MedicineViewModel,
+    statsViewModel: StatsViewModel,
     onOpenDrawer: () -> Unit
 ) {
     var section by rememberSaveable { mutableStateOf<String?>(null) }
+    var showStats by rememberSaveable { mutableStateOf(false) }
 
     BackHandler(enabled = section != null) { section = null }
+    BackHandler(enabled = showStats) { showStats = false }
+
+    if (showStats) {
+        StatsScreen(
+            viewModel = statsViewModel,
+            onBack = { showStats = false }
+        )
+        return
+    }
 
     when (section) {
         SECTION_FOOD -> FridgeScreen(fridgeViewModel, onBack = { section = null })
@@ -88,6 +101,15 @@ fun ItemsHubScreen(
                         navigationIcon = {
                             IconButton(onClick = onOpenDrawer) {
                                 Icon(Icons.Filled.Menu, contentDescription = "打开设置", tint = Color.White)
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = { showStats = true }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Analytics,
+                                    contentDescription = "物品统计",
+                                    tint = Color.White
+                                )
                             }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary)

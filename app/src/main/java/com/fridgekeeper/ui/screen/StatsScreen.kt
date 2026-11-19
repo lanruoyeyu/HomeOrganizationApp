@@ -1,5 +1,6 @@
 package com.fridgekeeper.ui.screen
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -64,7 +66,12 @@ private const val MAP_MODE_MAP = 1
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatsScreen(viewModel: StatsViewModel, onOpenDrawer: () -> Unit) {
+fun StatsScreen(
+    viewModel: StatsViewModel,
+    onBack: (() -> Unit)? = null,
+    onOpenDrawer: () -> Unit = {}
+) {
+    BackHandler(enabled = onBack != null) { onBack?.invoke() }
     val uiState by viewModel.uiState.collectAsState()
     val spacingScale = LocalSpacingScale.current
     val markers by viewModel.markers.collectAsState()
@@ -90,8 +97,22 @@ fun StatsScreen(viewModel: StatsViewModel, onOpenDrawer: () -> Unit) {
             TopAppBar(
                 title = { Text("物品统计", color = Color.White, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Filled.Menu, contentDescription = "打开设置", tint = Color.White)
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.Filled.ArrowBack,
+                                contentDescription = "返回",
+                                tint = Color.White
+                            )
+                        }
+                    } else {
+                        IconButton(onClick = onOpenDrawer) {
+                            Icon(
+                                imageVector = Icons.Filled.Menu,
+                                contentDescription = "打开设置",
+                                tint = Color.White
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Primary)

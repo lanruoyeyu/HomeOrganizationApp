@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.asStateFlow
 enum class AppPage(val label: String) {
     LEDGER("记账"),
     ITEMS("物品"),
-    STATS("统计"),
     WELFARE("福利"),
     CHECKIN("打卡"),
     TASSET("做T")

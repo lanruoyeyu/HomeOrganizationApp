@@ -17,6 +17,9 @@ interface SubcategoryDao {
     @Query("SELECT COUNT(*) FROM subcategories WHERE categoryId = :categoryId AND name = :name")
     suspend fun countByName(categoryId: Long, name: String): Int
 
+    @Query("SELECT * FROM subcategories WHERE categoryId = :categoryId AND name = :name LIMIT 1")
+    suspend fun getByName(categoryId: Long, name: String): SubcategoryEntity?
+
     @Insert
     suspend fun insert(entity: SubcategoryEntity): Long
 }

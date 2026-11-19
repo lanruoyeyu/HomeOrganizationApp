@@ -91,6 +91,19 @@ data class Account(
     var ledgerSelectable: Boolean? = null,   // 记账时是否可被选择；null 视为默认开启
     var billingDay: Int? = null,             // 信用账户账单日（1-31）
     var repaymentDay: Int? = null,           // 信用账户还款日（1-31）
+    var currency: String? = null,            // 账户币种；null 视为 CNY
+    var includeInTotalAssets: Boolean? = null, // 是否计入总资产；null 视为 true
+    // 信用卡
+    var bank: String? = null,                // 发卡银行
+    var creditLimit: Double? = null,         // 总信用额度
+    var billCountInCurrent: Boolean? = null, // 出账日账单计入当期；null 视为 false
+    // 贷款
+    var loanAmount: Double? = null,          // 贷款金额
+    var loanRate: Double? = null,            // 贷款年利率（%）
+    var repaymentMethod: String? = null,     // 还款方式
+    var loanPeriods: Int? = null,            // 贷款期数
+    var paidPeriods: Int? = null,            // 已还期数
+    var firstRepaymentDate: String? = null,  // 首次还款日（yyyy-MM-dd）
     var order: Long = 0L,
     var createTime: String = "",
     var updateTime: String = ""

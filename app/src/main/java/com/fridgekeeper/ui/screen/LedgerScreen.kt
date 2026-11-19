@@ -66,7 +66,6 @@ import com.fridgekeeper.data.local.LedgerEntryEntity
 import com.fridgekeeper.model.DateUtils
 import com.fridgekeeper.model.LedgerItemUiState
 import com.fridgekeeper.model.ParsedLedgerEntry
-import com.fridgekeeper.ui.components.AddLedgerDialog
 import com.fridgekeeper.ui.components.LedgerItemCard
 import com.fridgekeeper.ui.components.LedgerMonthSummary
 import com.fridgekeeper.ui.components.LedgerSettingsDialog
@@ -127,6 +126,38 @@ fun LedgerScreen(viewModel: LedgerViewModel, onOpenDrawer: () -> Unit) {
             snackbarHostState.showSnackbar(message)
             viewModel.consumeBackupMessage()
         }
+    }
+
+    if (backupState.isRunning) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            title = { Text("正在处理") },
+            text = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = Primary
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text("正在解析并导入表格数据，请稍候…")
+                }
+            }
+        )
+    }
+
+    backupState.report?.let { report ->
+        AlertDialog(
+            onDismissRequest = { viewModel.consumeImportReport() },
+            title = { Text(if (report.contains("失败")) "表格导入失败" else "表格导入完成") },
+            text = { Text(report, fontSize = 13.sp) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.consumeImportReport() }) {
+                    Text("知道了")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -334,23 +365,17 @@ fun LedgerScreen(viewModel: LedgerViewModel, onOpenDrawer: () -> Unit) {
     }
 
     if (showAdd) {
-        AddLedgerDialog(
+        LedgerEditScreen(
             onDismiss = { showAdd = false },
-            onConfirm = { draft ->
-                viewModel.addEntry(draft)
-                showAdd = false
-            }
+            onConfirm = { draft -> viewModel.addEntry(draft) }
         )
     }
 
     editTarget?.let { target ->
-        AddLedgerDialog(
+        LedgerEditScreen(
             editItem = target,
             onDismiss = { editTarget = null },
-            onConfirm = { draft ->
-                viewModel.updateEntry(target.id, draft)
-                editTarget = null
-            }
+            onConfirm = { draft -> viewModel.updateEntry(target.id, draft) }
         )
     }
 

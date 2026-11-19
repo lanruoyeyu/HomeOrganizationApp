@@ -46,7 +46,9 @@ class ViewModelFactory(
                     ledgerAiParser,
                     ledgerSettings,
                     dataBackupManager,
-                    ledgerExcelManager
+                    ledgerExcelManager,
+                    catalogRepository,
+                    fridgeRepository
                 ) as T
             modelClass.isAssignableFrom(FridgeViewModel::class.java) ->
                 FridgeViewModel(fridgeRepository, catalogRepository, usageRecordRepository) as T

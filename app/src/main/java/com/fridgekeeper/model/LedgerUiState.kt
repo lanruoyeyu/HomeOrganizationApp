@@ -28,7 +28,9 @@ data class LedgerDraft(
     val book: String = LedgerTaxonomy.DEFAULT_BOOK,
     val typeLabel: String = "",
     val note: String = "",
-    val occurredAt: Long
+    val occurredAt: Long,
+    /** 保存后是否同步加入收纳物品 */
+    val storedToInventory: Boolean = false
 )
 
 data class LedgerItemUiState(
@@ -44,7 +46,8 @@ data class LedgerItemUiState(
     val book: String,
     val note: String,
     val occurredAt: Long,
-    val rawInput: String
+    val rawInput: String,
+    val storedToInventory: Boolean = false
 ) {
     val isExpense: Boolean get() = type == LedgerEntryEntity.TYPE_EXPENSE
     val isIncome: Boolean get() = type == LedgerEntryEntity.TYPE_INCOME
@@ -77,7 +80,8 @@ data class LedgerItemUiState(
             book = entity.book,
             note = entity.note,
             occurredAt = entity.occurredAt,
-            rawInput = entity.rawInput
+            rawInput = entity.rawInput,
+            storedToInventory = entity.storedToInventory
         )
     }
 }

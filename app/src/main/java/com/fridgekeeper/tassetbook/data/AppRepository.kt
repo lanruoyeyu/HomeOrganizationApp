@@ -244,6 +244,53 @@ class AppRepository(private val store: LocalStore) {
         publish()
     }
 
+    /** 新建账户（接收完整 Account，便于保存新增的扩展字段） */
+    fun addAccount(account: Account): Account {
+        val now = Dates.nowString()
+        val a = account.copy(
+            id = if (account.id.isBlank()) System.currentTimeMillis().toString() else account.id,
+            name = account.name.ifBlank { account.type },
+            balance = Money.round2(account.balance),
+            remark = account.remark?.ifBlank { null },
+            order = (accounts.minOfOrNull { it.order } ?: 0L) - 1L,
+            createTime = if (account.createTime.isBlank()) now else account.createTime,
+            updateTime = now
+        )
+        accounts.add(0, a)
+        save()
+        publish()
+        return a
+    }
+
+    /** 更新账户（接收完整 Account） */
+    fun updateAccount(account: Account) {
+        val idx = accounts.indexOfFirst { it.id == account.id }
+        if (idx == -1) return
+        val a = accounts[idx]
+        a.category = account.category
+        a.type = account.type
+        a.name = account.name.ifBlank { account.type }
+        a.balance = Money.round2(account.balance)
+        a.remark = account.remark?.ifBlank { null }
+        a.ledgerSelectable = account.ledgerSelectable
+        a.billingDay = account.billingDay
+        a.repaymentDay = account.repaymentDay
+        a.currency = account.currency
+        a.includeInTotalAssets = account.includeInTotalAssets
+        a.bank = account.bank
+        a.creditLimit = account.creditLimit
+        a.billCountInCurrent = account.billCountInCurrent
+        a.loanAmount = account.loanAmount
+        a.loanRate = account.loanRate
+        a.repaymentMethod = account.repaymentMethod
+        a.loanPeriods = account.loanPeriods
+        a.paidPeriods = account.paidPeriods
+        a.firstRepaymentDate = account.firstRepaymentDate
+        a.updateTime = Dates.nowString()
+        save()
+        publish()
+    }
+
     /** 记账时可选择的账户名称（贷款、股票系统项及手动关闭的账户除外） */
     fun ledgerSelectableAccountNames(): List<String> =
         accounts
@@ -307,9 +354,12 @@ class AppRepository(private val store: LocalStore) {
         publish()
     }
 
-    /** 各类别（不含股票系统项）的金额合计：信用账户返回正数欠款合计，由调用方决定加减 */
+    /** 各类别（不含股票系统项）的金额合计：信用账户返回正数欠款合计，由调用方决定加减。
+     *  仅统计「计入总资产」的账户（includeInTotalAssets != false）。 */
     fun sumAccountsByCategory(category: String): Double =
-        Money.round2(accounts.filter { it.category == category }.sumOf { it.balance })
+        Money.round2(accounts.filter {
+            it.category == category && it.includeInTotalAssets != false
+        }.sumOf { it.balance })
 
     // ---------------- 交易：新建正T买入 / 反T卖出 ----------------
 

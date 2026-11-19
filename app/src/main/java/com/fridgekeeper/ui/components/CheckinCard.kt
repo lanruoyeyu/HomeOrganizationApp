@@ -53,7 +53,7 @@ fun CheckinCard(
     ) {
         Box(
             modifier = Modifier
-                .size(80.dp)
+                .size(68.dp)
                 .clip(CircleShape)
                 .background(if (done) circleColor else Color.White)
                 .border(BorderStroke(2.dp, circleColor), CircleShape)
@@ -65,21 +65,21 @@ fun CheckinCard(
         ) {
             Text(
                 text = item.name,
-                fontSize = 14.sp,
-                lineHeight = 18.sp,
+                fontSize = 13.sp,
+                lineHeight = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = if (done) Color.White else Color(0xFF212121),
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 10.dp)
+                modifier = Modifier.padding(horizontal = 8.dp)
             )
         }
 
-        Spacer(modifier = Modifier.height(7.dp))
+        Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = item.platform,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             color = Color(0xFF616161),
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -88,7 +88,7 @@ fun CheckinCard(
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = "${item.cycleLabel} · 本周 ${item.weeklyCheckins} 次",
-            fontSize = 10.sp,
+            fontSize = 9.sp,
             color = Color(0xFF888888),
             textAlign = TextAlign.Center,
             maxLines = 1,

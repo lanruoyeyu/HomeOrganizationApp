@@ -30,6 +30,32 @@ class CatalogRepository(
         )
     }
 
+    /** 按名称取分类，不存在则创建（自定义分类） */
+    suspend fun ensureCategory(name: String, kind: CategoryKind): Long {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return 0L
+        categoryDao.getByName(trimmed)?.let { return it.id }
+        return categoryDao.insert(
+            CategoryEntity(name = trimmed, kind = kind.name, isBuiltin = false)
+        )
+    }
+
+    /** 在指定分类下按名称取子分类，不存在则创建 */
+    suspend fun ensureSubcategory(categoryId: Long, name: String): Long {
+        val trimmed = name.trim()
+        if (categoryId <= 0 || trimmed.isEmpty()) return 0L
+        subcategoryDao.getByName(categoryId, trimmed)?.let { return it.id }
+        return subcategoryDao.insert(
+            SubcategoryEntity(
+                categoryId = categoryId,
+                name = trimmed,
+                quantityMode = QuantityType.COUNT.name,
+                trackDailyCostDefault = false,
+                isBuiltin = false
+            )
+        )
+    }
+
     suspend fun addSubcategory(
         categoryId: Long,
         name: String,

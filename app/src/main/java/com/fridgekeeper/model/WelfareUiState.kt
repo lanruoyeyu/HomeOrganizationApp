@@ -64,6 +64,8 @@ data class CheckinItemUiState(
     val lastCheckinAt: Long?,
     val remindHour: Int,
     val checkedInThisPeriod: Boolean,
+    /** 今天是否打过卡（用于决定打卡当天仍展示为「已打卡」） */
+    val doneToday: Boolean,
     val totalCheckins: Int,
     val weeklyCheckins: Int,
     val weeklyCheckinDays: Int,
@@ -78,6 +80,7 @@ data class CheckinItemUiState(
             val start = CheckinPeriod.startOf(entity.cycle, now)
             val end = CheckinPeriod.endOf(entity.cycle, now)
             val last = entity.lastCheckinAt
+            val todayStart = CheckinPeriod.startOf(CheckinCycle.DAILY, now)
             val taskRecords = records.filter { it.taskId == entity.id }
             val weekStart = CheckinPeriod.startOf(CheckinCycle.WEEKLY, now)
             val weekEnd = CheckinPeriod.addDays(weekStart, 7)
@@ -90,6 +93,7 @@ data class CheckinItemUiState(
                 lastCheckinAt = last,
                 remindHour = entity.remindHour,
                 checkedInThisPeriod = last != null && last >= start && last < end,
+                doneToday = last != null && last >= todayStart,
                 totalCheckins = taskRecords.size,
                 weeklyCheckins = weekRecords.size,
                 weeklyCheckinDays = weekRecords
@@ -165,6 +169,10 @@ data class WelfareUiState(
     val coupons: List<CouponItemUiState> = emptyList(),
     val sourceStats: List<CouponSourceStat> = emptyList(),
     val checkins: List<CheckinItemUiState> = emptyList(),
+    /** 今日应展示的打卡项目：待打卡在前、今天已打卡在后；本周/本月之前已打卡的不再展示 */
+    val visibleCheckins: List<CheckinItemUiState> = emptyList(),
+    /** 今日展示项目中待打卡的数量 */
+    val visiblePendingCount: Int = 0,
     val unusedCount: Int = 0,
     val unusedValue: Double = 0.0,
     val expiringCount: Int = 0,

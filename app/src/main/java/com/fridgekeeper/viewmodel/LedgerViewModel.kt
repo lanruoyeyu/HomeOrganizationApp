@@ -6,9 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.fridgekeeper.data.backup.DataBackupManager
 import com.fridgekeeper.data.ledger.LedgerExcelManager
 import com.fridgekeeper.data.ledger.LedgerTaxonomy
+import com.fridgekeeper.data.local.ItemEntity
 import com.fridgekeeper.data.local.LedgerEntryEntity
 import com.fridgekeeper.data.remote.LedgerAiParser
 import com.fridgekeeper.data.remote.LedgerLocalParser
+import com.fridgekeeper.data.repository.CatalogRepository
+import com.fridgekeeper.data.repository.FridgeRepository
 import com.fridgekeeper.data.repository.LedgerRepository
 import com.fridgekeeper.data.settings.LedgerSettings
 import com.fridgekeeper.model.LedgerConfig
@@ -28,7 +31,8 @@ import java.util.Calendar
 
 data class BackupUiState(
     val isRunning: Boolean = false,
-    val message: String? = null
+    val message: String? = null,
+    val report: String? = null
 )
 
 class LedgerViewModel(
@@ -36,7 +40,9 @@ class LedgerViewModel(
     private val aiParser: LedgerAiParser,
     private val settings: LedgerSettings,
     private val backupManager: DataBackupManager,
-    private val excelManager: LedgerExcelManager
+    private val excelManager: LedgerExcelManager,
+    private val catalogRepository: CatalogRepository,
+    private val fridgeRepository: FridgeRepository
 ) : ViewModel() {
 
     private data class ParseState(
@@ -165,9 +171,14 @@ class LedgerViewModel(
                         LedgerTaxonomy.templateTypeOf(draft.type)
                     },
                     note = draft.note,
-                    occurredAt = draft.occurredAt
+                    occurredAt = draft.occurredAt,
+                    storedToInventory = draft.storedToInventory
                 )
             )
+            // 开启收纳开关时，把这笔消费对应的物品自动加入收纳物品；失败不影响记账
+            if (draft.storedToInventory) {
+                runCatching { createInventoryItem(draft) }
+            }
         }
     }
 
@@ -188,10 +199,47 @@ class LedgerViewModel(
                         LedgerTaxonomy.templateTypeOf(draft.type)
                     },
                     note = draft.note,
-                    occurredAt = draft.occurredAt
+                    occurredAt = draft.occurredAt,
+                    storedToInventory = draft.storedToInventory
                 )
             )
+            // 编辑时把收纳开关从关闭改为打开 → 补录一条收纳物品；已开启则不重复添加
+            if (!existing.storedToInventory && draft.storedToInventory) {
+                runCatching { createInventoryItem(draft) }
+            }
         }
+    }
+
+    /**
+     * 根据记账条目自动创建一条收纳物品。
+     * 放入「食品」分类下（食品列表是当前唯一在物品页可见的收纳列表），
+     * 子分类按记账子分类 / 分类名称自动创建，保证用户能在物品页看到它。
+     */
+    private suspend fun createInventoryItem(draft: LedgerDraft) {
+        if (draft.type != LedgerEntryEntity.TYPE_EXPENSE) return
+        val categoryId = catalogRepository.foodCategoryId()
+        if (categoryId <= 0L) return
+        val subName = draft.subcategory.ifBlank { draft.category }.ifBlank { "未分类" }
+        val subcategoryId = catalogRepository.ensureSubcategory(categoryId, subName)
+        if (subcategoryId <= 0L) return
+        val itemName = draft.note.ifBlank {
+            draft.subcategory.ifBlank { draft.category }
+        }.ifBlank { "未命名物品" }
+        val dayMillis = 24L * 60 * 60 * 1000
+        fridgeRepository.addItem(
+            ItemEntity(
+                name = itemName.take(40),
+                subcategoryId = subcategoryId,
+                quantity = 1,
+                storageDate = draft.occurredAt,
+                // 默认 1 年保质期，避免在收纳列表中被标记为临期 / 已过期
+                expirationDate = draft.occurredAt + 365 * dayMillis,
+                locationId = null,
+                trackDailyCost = false,
+                buyPrice = draft.amount,
+                buyAt = draft.occurredAt
+            )
+        )
     }
 
     /** 从 iCost 模板表格导入记账，保留现有记录并追加 */
@@ -200,13 +248,19 @@ class LedgerViewModel(
         viewModelScope.launch {
             _backupState.value = BackupUiState(isRunning = true)
             var createdAccounts = 0
+            var assetWarning: String? = null
             runCatching {
                 val result = excelManager.importFrom(source)
                 repository.addAll(result.entries)
-                // 表格中的账户若在资产中不存在，则自动创建，后续可手动调整
-                createdAccounts = AppRepository.get().ensureLedgerAccounts(
-                    result.entries.flatMap { listOf(it.paymentMethod, it.account2) }
-                )
+                // 表格中的账户若在资产中不存在，则自动创建，后续可手动调整；
+                // 资产创建失败不影响已经导入的记账数据
+                runCatching {
+                    createdAccounts = AppRepository.get().ensureLedgerAccounts(
+                        result.entries.flatMap { listOf(it.paymentMethod, it.account2) }
+                    )
+                }.onFailure { error ->
+                    assetWarning = error.message ?: "未知错误"
+                }
                 result
             }.fold(
                 onSuccess = { result ->
@@ -215,22 +269,33 @@ class LedgerViewModel(
                     } else {
                         ""
                     }
-                    val assetDetail = if (createdAccounts > 0) {
-                        "，自动添加 $createdAccounts 个资产"
-                    } else {
-                        ""
+                    val assetDetail = when {
+                        createdAccounts > 0 -> "，自动添加 $createdAccounts 个资产"
+                        assetWarning != null -> "，资产自动创建失败（$assetWarning）"
+                        else -> ""
                     }
                     val detail = result.hint?.let { "（$it）" }.orEmpty()
+                    val summary = "已导入 ${result.entries.size} 条记账$skipped$assetDetail$detail"
                     _backupState.value = BackupUiState(
-                        message = "表格导入完成：新增 ${result.entries.size} 条$skipped$assetDetail$detail"
+                        message = summary,
+                        report = "$summary\n\n导入的记录按日期排序，较早的记录可能在列表下方。"
                     )
                 },
                 onFailure = { error ->
+                    val reason = error.message ?: "未知错误"
                     _backupState.value = BackupUiState(
-                        message = "表格导入失败：${error.message ?: "未知错误"}"
+                        message = "表格导入失败：$reason",
+                        report = "表格导入失败：$reason\n\n请确认选择的是 iCost 记账表格（.xlsx），并且包含「日期 / 金额」表头。"
                     )
                 }
             )
+        }
+    }
+
+    /** 关闭表格导入结果弹窗 */
+    fun consumeImportReport() {
+        if (_backupState.value.report != null) {
+            _backupState.value = _backupState.value.copy(report = null)
         }
     }
 
